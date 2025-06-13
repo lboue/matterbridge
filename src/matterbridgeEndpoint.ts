@@ -882,6 +882,7 @@ export class MatterbridgeEndpoint extends Endpoint {
       status: PowerSource.PowerSourceStatus.Active,
       order: 0,
       endpointList: [],
+      // tagList: options.tagList
     });
     return this;
   }
