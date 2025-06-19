@@ -57,7 +57,7 @@ export class BatteryStorage extends MatterbridgeEndpoint {
       [batteryStorage, powerSource, electricalSensor, deviceEnergyManagement],
       {
         tagList: [
-          { mfgCode: null, namespaceId: PowerSourceTag.Solar.namespaceId, tag: PowerSourceTag.Battery.tag, label: PowerSourceTag.Battery.label }
+          { mfgCode: null, namespaceId: PowerSourceTag.Solar.namespaceId, tag: PowerSourceTag.Battery.tag, label: PowerSourceTag.Battery.label },
           { mfgCode: null, namespaceId: PowerSourceTag.Solar.namespaceId, tag: PowerSourceTag.Grid.tag, label: PowerSourceTag.Grid.label }
         ],
         uniqueStorageKey: `${name.replaceAll(' ', '')}-${serial.replaceAll(' ', '')}`,
