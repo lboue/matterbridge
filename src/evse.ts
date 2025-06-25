@@ -64,13 +64,22 @@ export class Evse extends MatterbridgeEndpoint {
     super([evse, powerSource, electricalSensor, deviceEnergyManagement], { uniqueStorageKey: `${name.replaceAll(' ', '')}-${serial.replaceAll(' ', '')}` }, true);
     this.createDefaultIdentifyClusterServer()
       .createDefaultBasicInformationClusterServer(name, serial, 0xfff1, 'Matterbridge', 0x8000, 'Matterbridge EVSE')
-      .createDefaultPowerSourceWiredClusterServer()
-      .createDefaultPowerTopologyClusterServer()
-      .createDefaultElectricalPowerMeasurementClusterServer()
-      .createDefaultElectricalEnergyMeasurementClusterServer()
-      .createDefaultDeviceEnergyManagementClusterServer(DeviceEnergyManagement.EsaType.Evse, false, DeviceEnergyManagement.EsaState.Online, absMinPower, absMaxPower)
       .createDefaultEnergyEvseClusterServer(state, supplyState, faultState)
       .createDefaultEnergyEvseModeClusterServer(currentMode, supportedModes)
+      .addRequiredClusterServers()
+
+      .addChildDeviceTypeWithClusterServer("EVSE-PS", powerSource)
+      .createDefaultPowerSourceWiredClusterServer()
+      .createDefaultPowerTopologyClusterServer()
+      .addRequiredClusterServers()
+
+      .addChildDeviceTypeWithClusterServer("EVSE-ES", electricalSensor)
+      .createDefaultElectricalPowerMeasurementClusterServer()
+      .createDefaultElectricalEnergyMeasurementClusterServer()
+      .addRequiredClusterServers()
+
+      .addChildDeviceTypeWithClusterServer("EVSE-DEM",deviceEnergyManagement)
+      .createDefaultDeviceEnergyManagementClusterServer(DeviceEnergyManagement.EsaType.Evse, false, DeviceEnergyManagement.EsaState.Online, absMinPower, absMaxPower)
       .addRequiredClusterServers();
   }
 
