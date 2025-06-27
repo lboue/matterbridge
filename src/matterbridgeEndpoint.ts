@@ -2068,7 +2068,7 @@ export class MatterbridgeEndpoint extends Endpoint {
    *
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    */
-  createDefaultOperationalStateClusterServer(operationalState: OperationalState.OperationalStateEnum = OperationalState.OperationalStateEnum.Stopped): this {
+  createDefaultOperationalStateClusterServer(operationalState: OperationalState.OperationalStateEnum = OperationalState.OperationalStateEnum.Stopped, countdownTime = null): this {
     this.behaviors.require(MatterbridgeOperationalStateServer, getDefaultOperationalStateClusterServer(operationalState));
     return this;
   }
