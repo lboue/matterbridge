@@ -413,6 +413,8 @@ export class MatterbridgeOperationalStateServer extends OperationalStateServer {
     device.log.debug('MatterbridgeOperationalStateServer initialized: setting operational state to Stopped');
     this.state.operationalState = OperationalState.OperationalStateEnum.Stopped;
     this.state.operationalError = { errorStateId: OperationalState.ErrorState.NoError, errorStateLabel: 'No error', errorStateDetails: 'Fully operational' };
+    this.state.currentPhase = 0;
+    this.state.phaseList = ['pre-wash', 'main-wash', 'rinse', 'drying'];
     super.initialize(); // Error handling logic is handled in matter.js
   }
 
