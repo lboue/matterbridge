@@ -907,7 +907,7 @@ describe('Matterbridge ' + NAME, () => {
       expect(attributeId).toBeDefined();
       count++;
     });
-    expect(count).toBe(73);
+    expect(attributes.length).toBe(74);
   });
 
   test('invoke MatterbridgeRvcRunModeServer commands', async () => {
