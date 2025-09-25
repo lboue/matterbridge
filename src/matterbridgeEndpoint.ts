@@ -1837,6 +1837,12 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {number} [maxHeatSetpointLimit] - The maximum heat setpoint limit value. Defaults to 50°.
    * @param {number} [minCoolSetpointLimit] - The minimum cool setpoint limit value. Defaults to 0°.
    * @param {number} [maxCoolSetpointLimit] - The maximum cool setpoint limit value. Defaults to 50°.
+   * @param {number} activeScheduleHandle - Description
+   * @param {{Thermostat.ScheduleType[]}} scheduleTypes - Description
+   * @param {number} [numberOfSchedules] - Description
+   * @param {number} [numberOfScheduleTransitions] - Description
+   * @param {number} [numberOfScheduleTransitionPerDay] - Description
+   * @param {{Thermostat.Schedule[]}} schedules - Description
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    */
   createDefaultThermostatClusterServer(
@@ -1848,6 +1854,12 @@ export class MatterbridgeEndpoint extends Endpoint {
     maxHeatSetpointLimit: number = 50,
     minCoolSetpointLimit: number = 0,
     maxCoolSetpointLimit: number = 50,
+    activeScheduleHandle: null,
+    scheduleTypes: Thermostat.ScheduleType[] = [],
+    numberOfSchedules: number = 0,
+    numberOfScheduleTransitions: number = 0,
+    numberOfScheduleTransitionPerDay: null,
+    schedules: Thermostat.Schedule[] = [],
   ): this {
     this.behaviors.require(MatterbridgeThermostatServer.with(Thermostat.Feature.Heating, Thermostat.Feature.Cooling, Thermostat.Feature.AutoMode), {
       localTemperature: localTemperature * 100,
@@ -1869,8 +1881,12 @@ export class MatterbridgeEndpoint extends Endpoint {
       minSetpointDeadBand: minSetpointDeadBand * 100,
       thermostatRunningMode: Thermostat.ThermostatRunningMode.Off,
       // Thermostat.Feature.MatterScheduleConfiguration
-	  activeScheduleHandle: null,
-      schedules: Thermostat.ScheduleStruct[] = [],
+      //  activeScheduleHandle,
+      scheduleTypes, // FixedAttribute
+      numberOfSchedules, // FixedAttribute
+      numberOfScheduleTransitions, // FixedAttribute
+      numberOfScheduleTransitionPerDay, // FixedAttribute
+      schedules,
     });
     return this;
   }
