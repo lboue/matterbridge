@@ -1868,6 +1868,9 @@ export class MatterbridgeEndpoint extends Endpoint {
       // Thermostat.Feature.AutoMode
       minSetpointDeadBand: minSetpointDeadBand * 100,
       thermostatRunningMode: Thermostat.ThermostatRunningMode.Off,
+      // Thermostat.Feature.MatterScheduleConfiguration
+	    activeScheduleHandle: null,
+      schedules: Thermostat.ScheduleStruct[] = [],
     });
     return this;
   }
