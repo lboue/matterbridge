@@ -1837,6 +1837,52 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {number} [maxHeatSetpointLimit] - The maximum heat setpoint limit value. Defaults to 50°.
    * @param {number} [minCoolSetpointLimit] - The minimum cool setpoint limit value. Defaults to 0°.
    * @param {number} [maxCoolSetpointLimit] - The maximum cool setpoint limit value. Defaults to 50°.
+   * @returns {this} The current MatterbridgeEndpoint instance for chaining.
+   */
+  createDefaultThermostatClusterServer(
+    localTemperature: number = 23,
+    occupiedHeatingSetpoint: number = 21,
+    occupiedCoolingSetpoint: number = 25,
+    minSetpointDeadBand: number = 1,
+    minHeatSetpointLimit: number = 0,
+    maxHeatSetpointLimit: number = 50,
+    minCoolSetpointLimit: number = 0,
+    maxCoolSetpointLimit: number = 50,
+  ): this {
+    this.behaviors.require(MatterbridgeThermostatServer.with(Thermostat.Feature.Heating, Thermostat.Feature.Cooling, Thermostat.Feature.AutoMode), {
+      localTemperature: localTemperature * 100,
+      systemMode: Thermostat.SystemMode.Auto,
+      controlSequenceOfOperation: Thermostat.ControlSequenceOfOperation.CoolingAndHeating,
+      // Thermostat.Feature.Heating
+      occupiedHeatingSetpoint: occupiedHeatingSetpoint * 100,
+      minHeatSetpointLimit: minHeatSetpointLimit * 100,
+      maxHeatSetpointLimit: maxHeatSetpointLimit * 100,
+      absMinHeatSetpointLimit: minHeatSetpointLimit * 100,
+      absMaxHeatSetpointLimit: maxHeatSetpointLimit * 100,
+      // Thermostat.Feature.Cooling
+      occupiedCoolingSetpoint: occupiedCoolingSetpoint * 100,
+      minCoolSetpointLimit: minCoolSetpointLimit * 100,
+      maxCoolSetpointLimit: maxCoolSetpointLimit * 100,
+      absMinCoolSetpointLimit: minCoolSetpointLimit * 100,
+      absMaxCoolSetpointLimit: maxCoolSetpointLimit * 100,
+      // Thermostat.Feature.AutoMode
+      minSetpointDeadBand: minSetpointDeadBand * 100,
+      thermostatRunningMode: Thermostat.ThermostatRunningMode.Off,
+    });
+    return this;
+  }
+
+  /**
+   * Creates a default thermostat cluster server with features Heating, Cooling and AutoMode.
+   *
+   * @param {number} [localTemperature] - The local temperature value in degrees Celsius. Defaults to 23°.
+   * @param {number} [occupiedHeatingSetpoint] - The occupied heating setpoint value in degrees Celsius. Defaults to 21°.
+   * @param {number} [occupiedCoolingSetpoint] - The occupied cooling setpoint value in degrees Celsius. Defaults to 25°.
+   * @param {number} [minSetpointDeadBand] - The minimum setpoint dead band value. Defaults to 1°.
+   * @param {number} [minHeatSetpointLimit] - The minimum heat setpoint limit value. Defaults to 0°.
+   * @param {number} [maxHeatSetpointLimit] - The maximum heat setpoint limit value. Defaults to 50°.
+   * @param {number} [minCoolSetpointLimit] - The minimum cool setpoint limit value. Defaults to 0°.
+   * @param {number} [maxCoolSetpointLimit] - The maximum cool setpoint limit value. Defaults to 50°.
    * @param {number} activeScheduleHandle - Description
    * @param {{Thermostat.ScheduleType[]}} scheduleTypes - Description
    * @param {number} [numberOfSchedules] - Description
@@ -1845,7 +1891,7 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {{Thermostat.Schedule[]}} schedules - Description
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    */
-  createDefaultThermostatClusterServer(
+  createDefaultScheduleThermostatClusterServer(
     localTemperature: number = 23,
     occupiedHeatingSetpoint: number = 21,
     occupiedCoolingSetpoint: number = 25,
@@ -1861,7 +1907,7 @@ export class MatterbridgeEndpoint extends Endpoint {
     numberOfScheduleTransitionPerDay: null,
     schedules: Thermostat.Schedule[] = [],
   ): this {
-    this.behaviors.require(MatterbridgeThermostatServer.with(Thermostat.Feature.Heating, Thermostat.Feature.Cooling, Thermostat.Feature.AutoMode), {
+    this.behaviors.require(MatterbridgeThermostatServer.with(Thermostat.Feature.Heating, Thermostat.Feature.Cooling, Thermostat.Feature.AutoMode, Thermostat.Feature.MatterScheduleConfiguration), {
       localTemperature: localTemperature * 100,
       systemMode: Thermostat.SystemMode.Auto,
       controlSequenceOfOperation: Thermostat.ControlSequenceOfOperation.CoolingAndHeating,
