@@ -276,6 +276,32 @@ export interface SerializedMatterbridgeEndpoint {
   clusterServersId: ClusterId[];
 }
 
+export enum PresetType {
+  Comfort = 0,
+  Eco = 1,
+  Away = 2,
+  Sleep = 3,
+}
+const myPreset1: Thermostat.Preset = {
+  presetHandle: new Uint8Array([0]),
+  presetScenario: Thermostat.PresetScenario.Occupied,
+  name: 'Confort',
+  // coolingSetpoint: 2200, // Only for AUTO or COOL
+  heatingSetpoint: 2000,
+  builtIn: true,
+};
+const myPreset2: Thermostat.Preset = {
+  presetHandle: new Uint8Array([1]),
+  presetScenario: Thermostat.PresetScenario.Occupied,
+  name: 'Away',
+  // coolingSetpoint: 2200, // Only for AUTO or COOL
+  heatingSetpoint: 1800,
+  builtIn: true,
+};
+const myPresets = [myPreset1, myPreset2];
+
+const supportedPresets = [PresetType.Comfort, PresetType.Eco, PresetType.Away, PresetType.Sleep];
+
 export class MatterbridgeEndpoint extends Endpoint {
   /** The default log level of the new MatterbridgeEndpoints */
   static logLevel = LogLevel.INFO;
@@ -1912,7 +1938,7 @@ export class MatterbridgeEndpoint extends Endpoint {
     occupied: boolean | undefined = undefined,
     outdoorTemperature: number | null | undefined = undefined,
   ): this {
-    this.behaviors.require(MatterbridgeThermostatServer.with(Thermostat.Feature.Heating, ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : [])), {
+    this.behaviors.require(MatterbridgeThermostatServer.with(Thermostat.Feature.Heating, Thermostat.Feature.Presets, ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : [])), {
       localTemperature: localTemperature * 100,
       ...(outdoorTemperature !== undefined ? { outdoorTemperature: outdoorTemperature !== null ? outdoorTemperature * 100 : outdoorTemperature } : {}), // Optional nullable attribute
       systemMode: Thermostat.SystemMode.Heat,
@@ -1926,6 +1952,11 @@ export class MatterbridgeEndpoint extends Endpoint {
       // Thermostat.Feature.Occupancy
       ...(occupied !== undefined ? { unoccupiedHeatingSetpoint: unoccupiedHeatingSetpoint !== undefined ? unoccupiedHeatingSetpoint * 100 : 1900 } : {}),
       ...(occupied !== undefined ? { occupancy: { occupied } } : {}),
+      // Thermostat.Feature.Presets
+      numberOfPresets: supportedPresets.length,
+      activePresetHandle: new Uint8Array([0]),
+      //presets: [myPreset],
+      presets: myPresets,
     });
     return this;
   }
