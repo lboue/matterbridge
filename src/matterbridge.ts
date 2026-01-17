@@ -2316,7 +2316,7 @@ const commissioningController = new CommissioningController({
           action = 'added';
           break;
         case 'deleted':
-          action = 'deleted';
+          action = 'removed';
           break;
         case 'updated':
           action = 'updated';
