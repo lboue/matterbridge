@@ -3521,7 +3521,7 @@ export class MatterbridgeEndpoint extends Endpoint {
         minPinCodeLength: 4,
         maxPinCodeLength: 10,
         // PinCredential and CredentialOverTheAirAccess features attributes
-        requirePinForRemoteOperation: true,
+        requirePinForRemoteOperation: false,
         // PinCredential or RfidCredential feature attributes
         wrongCodeEntryLimit: 5,
         userCodeTemporaryDisableTime: 60,
