@@ -51,7 +51,7 @@ import {
   stopMatterbridgeEnvironment,
 } from './jestutils/jestHelpers.js';
 import { Matterbridge } from './matterbridge.js';
-import { MatterbridgeDoorLockServer, MatterbridgeSwitchServer, MatterbridgeThermostatServer } from './matterbridgeBehaviorsServer.js';
+import { MatterbridgeDoorLockServer, MatterbridgeDoorLockUserServer, MatterbridgeSwitchServer, MatterbridgeThermostatServer } from './matterbridgeBehaviorsServer.js';
 import {
   airPurifier,
   bridge,
@@ -845,6 +845,116 @@ describe('Server clusters and behaviors', () => {
       userType: DoorLock.UserType.UnrestrictedUser,
       pinCode: Buffer.from('1234'),
     });
+  });
+
+  test('DoorLock server with User + PIN credential', async () => {
+    const userPinLock = new MatterbridgeEndpoint(doorLockDevice, { id: 'doorLockUserPin' });
+    const pinCode = Buffer.from([0x31, 0x32, 0x33, 0x34]);
+
+    userPinLock.createUserPinDoorLockClusterServer();
+    userPinLock.addRequiredClusterServers();
+    expect(await addDevice(aggregator, userPinLock)).toBeTruthy();
+
+    expect(userPinLock.getCluster(DoorLock.Cluster)?.lockState).toBe(DoorLock.LockState.Locked);
+    expect(userPinLock.behaviors.has(MatterbridgeDoorLockUserServer)).toBeTruthy();
+    expect(userPinLock.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('unlockDoor')).toBeTruthy();
+    expect(userPinLock.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('lockDoor')).toBeTruthy();
+    expect(userPinLock.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('setUser')).toBeTruthy();
+    expect(userPinLock.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('getUser')).toBeTruthy();
+    expect(userPinLock.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('clearUser')).toBeTruthy();
+    expect(userPinLock.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('setCredential')).toBeTruthy();
+    expect(userPinLock.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('getCredentialStatus')).toBeTruthy();
+    expect(userPinLock.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('clearCredential')).toBeTruthy();
+
+    await expectCommand(userPinLock, DoorLock.Cluster, 'unlockDoor', { pinCode }, (data) => {
+      expect(data.cluster).toBe('doorLock');
+    });
+    expect(userPinLock.getCluster(DoorLock.Cluster)?.lockState).toBe(DoorLock.LockState.Unlocked);
+
+    await expectCommand(userPinLock, DoorLock.Cluster, 'lockDoor', { pinCode }, (data) => {
+      expect(data.cluster).toBe('doorLock');
+    });
+    expect(userPinLock.getCluster(DoorLock.Cluster)?.lockState).toBe(DoorLock.LockState.Locked);
+  });
+
+  test('DoorLock User + Credential edge cases', async () => {
+    const info = jest.fn();
+    const debug = jest.fn();
+    const executeHandler = jest.fn(async () => undefined);
+    const endpoint = {
+      maybeId: 'doorLockUserMock',
+      maybeNumber: 98,
+      stateOf: () => ({
+        log: { info, debug },
+        commandHandler: { executeHandler },
+      }),
+    };
+    const behavior = {
+      endpoint,
+      state: {},
+    } as unknown as MatterbridgeDoorLockUserServer;
+
+    await MatterbridgeDoorLockUserServer.prototype.setUser.call(behavior, {
+      operationType: DoorLock.DataOperationType.Add,
+      userIndex: 1,
+      userName: 'Alice',
+      userUniqueId: null,
+      userStatus: DoorLock.UserStatus.OccupiedEnabled,
+      userType: DoorLock.UserType.UnrestrictedUser,
+      credentialRule: null,
+    } as DoorLock.SetUserRequest);
+
+    const getUserResponse = await MatterbridgeDoorLockUserServer.prototype.getUser.call(behavior, { userIndex: 1 });
+
+    await MatterbridgeDoorLockUserServer.prototype.clearUser.call(behavior, { userIndex: 0xfffe });
+
+    const credential = { credentialType: DoorLock.CredentialType.Pin, credentialIndex: 1 };
+    const pinCode = Buffer.from([0x31, 0x32, 0x33, 0x34]);
+
+    const setCredentialResponse = await MatterbridgeDoorLockUserServer.prototype.setCredential.call(behavior, {
+      operationType: DoorLock.DataOperationType.Add,
+      credential,
+      credentialData: pinCode,
+      userIndex: null,
+      userStatus: null,
+      userType: null,
+    } as DoorLock.SetCredentialRequest);
+
+    const getCredentialStatusResponse = await MatterbridgeDoorLockUserServer.prototype.getCredentialStatus.call(behavior, { credential });
+
+    await MatterbridgeDoorLockUserServer.prototype.clearCredential.call(behavior, { credential: null });
+
+    expect(executeHandler).toHaveBeenCalledWith('DoorLock.setUser', expect.objectContaining({ command: 'setUser', cluster: 'doorLock', endpoint }));
+    expect(executeHandler).toHaveBeenCalledWith('DoorLock.getUser', expect.objectContaining({ command: 'getUser', request: { userIndex: 1 }, cluster: 'doorLock', endpoint }));
+    expect(executeHandler).toHaveBeenCalledWith('DoorLock.clearUser', expect.objectContaining({ command: 'clearUser', request: { userIndex: 0xfffe }, cluster: 'doorLock', endpoint }));
+    expect(executeHandler).toHaveBeenCalledWith('DoorLock.setCredential', expect.objectContaining({ command: 'setCredential', cluster: 'doorLock', endpoint }));
+    expect(executeHandler).toHaveBeenCalledWith('DoorLock.getCredentialStatus', expect.objectContaining({ command: 'getCredentialStatus', cluster: 'doorLock', endpoint }));
+    expect(executeHandler).toHaveBeenCalledWith('DoorLock.clearCredential', expect.objectContaining({ command: 'clearCredential', request: { credential: null }, cluster: 'doorLock', endpoint }));
+
+    expect(info).toHaveBeenCalledWith('Setting user 1 name Alice status 1 type 0 (endpoint doorLockUserMock.98)');
+    expect(info).toHaveBeenCalledWith('Getting user 1 (endpoint doorLockUserMock.98)');
+    expect(info).toHaveBeenCalledWith('Clearing all users (endpoint doorLockUserMock.98)');
+    expect(info).toHaveBeenCalledWith('Setting credential type 1 index 1 for user new (endpoint doorLockUserMock.98)');
+    expect(info).toHaveBeenCalledWith('Getting credential status type 1 index 1 (endpoint doorLockUserMock.98)');
+    expect(info).toHaveBeenCalledWith('Clearing credential all (endpoint doorLockUserMock.98)');
+    expect(debug).toHaveBeenCalledWith('MatterbridgeDoorLockUserServer: setUser called for user 1');
+    expect(debug).toHaveBeenCalledWith('MatterbridgeDoorLockUserServer: getUser called for user 1');
+    expect(debug).toHaveBeenCalledWith('MatterbridgeDoorLockUserServer: clearUser called for all users');
+
+    expect(getUserResponse).toEqual({
+      userIndex: 1,
+      userName: null,
+      userUniqueId: null,
+      userStatus: DoorLock.UserStatus.Available,
+      userType: null,
+      credentialRule: null,
+      credentials: null,
+      creatorFabricIndex: null,
+      lastModifiedFabricIndex: null,
+      nextUserIndex: null,
+    });
+    expect(setCredentialResponse).toEqual({ status: 0, userIndex: null, nextCredentialIndex: null });
+    expect(getCredentialStatusResponse).toEqual({ credentialExists: false, userIndex: null, creatorFabricIndex: null, lastModifiedFabricIndex: null, nextCredentialIndex: null });
   });
 
   test('FanControl server', async () => {

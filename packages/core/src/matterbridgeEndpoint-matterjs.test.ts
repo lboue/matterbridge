@@ -56,6 +56,7 @@ import {
   DescriptorCluster,
   DeviceEnergyManagement,
   DeviceEnergyManagementMode,
+  DoorLock,
   ElectricalEnergyMeasurement,
   ElectricalPowerMeasurement,
   FanControl,
@@ -99,6 +100,7 @@ import {
   MatterbridgeDeviceEnergyManagementModeServer,
   MatterbridgeDeviceEnergyManagementServer,
   MatterbridgeDoorLockServer,
+  MatterbridgeDoorLockUserServer,
   MatterbridgeFanControlServer,
   MatterbridgeIdentifyServer,
   MatterbridgeLevelControlServer,
@@ -143,6 +145,7 @@ describe('Matterbridge ' + NAME, () => {
   let coverLift: MatterbridgeEndpoint;
   let coverLiftTilt: MatterbridgeEndpoint;
   let lock: MatterbridgeEndpoint;
+  let lockUser: MatterbridgeEndpoint;
   let fan: MatterbridgeEndpoint;
   let thermostat: MatterbridgeEndpoint;
   let valve: MatterbridgeEndpoint;
@@ -326,6 +329,15 @@ describe('Matterbridge ' + NAME, () => {
     expect(lock).toBeDefined();
     expect(lock.id).toBe('DoorLock');
     expect(lock.getAllClusterServerNames()).toEqual(['descriptor', 'matterbridge', 'identify', 'doorLock']);
+  });
+
+  test('create a lockUser device', async () => {
+    lockUser = new MatterbridgeEndpoint(doorLockDevice, { id: 'DoorLockUser' });
+    lockUser.createUserPinDoorLockClusterServer();
+    lockUser.addRequiredClusterServers();
+    expect(lockUser).toBeDefined();
+    expect(lockUser.id).toBe('DoorLockUser');
+    expect(lockUser.getAllClusterServerNames()).toEqual(['descriptor', 'matterbridge', 'doorLock', 'identify']);
   });
 
   test('create a fan device', async () => {
@@ -556,6 +568,11 @@ describe('Matterbridge ' + NAME, () => {
   test('add lockDevice device to serverNode', async () => {
     expect(await server.add(lock)).toBeDefined();
     (matterbridge as any).frontend.getClusterTextFromDevice(lock);
+  });
+
+  test('add lockUser device to serverNode', async () => {
+    expect(await server.add(lockUser)).toBeDefined();
+    (matterbridge as any).frontend.getClusterTextFromDevice(lockUser);
   });
 
   test('add fan device to serverNode', async () => {
@@ -1112,6 +1129,57 @@ describe('Matterbridge ' + NAME, () => {
     await lock.invokeBehaviorCommand('doorLock', 'unlockDoor', {});
     expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Locking door with pincode N/A (endpoint ${lock.id}.${lock.number})`);
     expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Unlocking door with pincode N/A (endpoint ${lock.id}.${lock.number})`);
+  });
+
+  test('invoke MatterbridgeDoorLockUserServer commands', async () => {
+    expect(lockUser.behaviors.has(MatterbridgeDoorLockUserServer)).toBeTruthy();
+    expect(lockUser.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('lockDoor')).toBeTruthy();
+    expect(lockUser.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('unlockDoor')).toBeTruthy();
+    expect(lockUser.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('setUser')).toBeTruthy();
+    expect(lockUser.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('getUser')).toBeTruthy();
+    expect(lockUser.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('clearUser')).toBeTruthy();
+    expect(lockUser.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('setCredential')).toBeTruthy();
+    expect(lockUser.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('getCredentialStatus')).toBeTruthy();
+    expect(lockUser.behaviors.elementsOf(MatterbridgeDoorLockUserServer).commands.has('clearCredential')).toBeTruthy();
+
+    await lockUser.invokeBehaviorCommand('doorLock', 'lockDoor', {});
+    await lockUser.invokeBehaviorCommand('doorLock', 'unlockDoor', {});
+    expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Locking door with pincode N/A (endpoint ${lockUser.id}.${lockUser.number})`);
+    expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Unlocking door with pincode N/A (endpoint ${lockUser.id}.${lockUser.number})`);
+
+    await lockUser.invokeBehaviorCommand('doorLock', 'setUser', {
+      operationType: DoorLock.DataOperationType.Add,
+      userIndex: 1,
+      userName: 'Alice',
+      userUniqueId: null,
+      userStatus: DoorLock.UserStatus.OccupiedEnabled,
+      userType: DoorLock.UserType.UnrestrictedUser,
+      credentialRule: null,
+    });
+    expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Setting user 1 name Alice status 1 type 0 (endpoint ${lockUser.id}.${lockUser.number})`);
+
+    await lockUser.invokeBehaviorCommand('doorLock', 'getUser', { userIndex: 1 });
+    expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Getting user 1 (endpoint ${lockUser.id}.${lockUser.number})`);
+
+    await lockUser.invokeBehaviorCommand('doorLock', 'clearUser', { userIndex: 0xfffe });
+    expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Clearing all users (endpoint ${lockUser.id}.${lockUser.number})`);
+
+    const credential = { credentialType: DoorLock.CredentialType.Pin, credentialIndex: 1 };
+    await lockUser.invokeBehaviorCommand('doorLock', 'setCredential', {
+      operationType: DoorLock.DataOperationType.Add,
+      credential,
+      credentialData: Buffer.from([0x31, 0x32, 0x33, 0x34]),
+      userIndex: null,
+      userStatus: null,
+      userType: null,
+    });
+    expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Setting credential type 1 index 1 for user new (endpoint ${lockUser.id}.${lockUser.number})`);
+
+    await lockUser.invokeBehaviorCommand('doorLock', 'getCredentialStatus', { credential });
+    expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Getting credential status type 1 index 1 (endpoint ${lockUser.id}.${lockUser.number})`);
+
+    await lockUser.invokeBehaviorCommand('doorLock', 'clearCredential', { credential: null });
+    expect(loggerLogSpy).toHaveBeenCalledWith(LogLevel.INFO, `Clearing credential all (endpoint ${lockUser.id}.${lockUser.number})`);
   });
 
   test('invoke MatterbridgeModeSelectServer commands', async () => {
