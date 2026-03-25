@@ -71,6 +71,7 @@ import { SmokeCoAlarm } from '@matter/types/clusters/smoke-co-alarm';
 import { Thermostat } from '@matter/types/clusters/thermostat';
 import { ValveConfigurationAndControl } from '@matter/types/clusters/valve-configuration-and-control';
 import { WindowCovering } from '@matter/types/clusters/window-covering';
+import { Status } from '@matter/types';
 import { EndpointNumber } from '@matter/types/datatype';
 import { getEnumDescription } from '@matterbridge/utils';
 import { AnsiLogger } from 'node-ansi-logger';
@@ -737,6 +738,200 @@ export class MatterbridgeDoorLockServer extends DoorLockServer.with(DoorLock.Fea
       endpoint: this.endpoint as MatterbridgeEndpoint,
     });
     device.log.debug('MatterbridgeDoorLockServer: clearAllPinCodes called');
+  }
+}
+
+/**
+ * DoorLock server (PinCredential + User + CredentialOverTheAirAccess) that forwards lock, user, and credential commands to the Matterbridge command handler.
+ */
+export class MatterbridgeDoorLockUserServer extends DoorLockServer.with(DoorLock.Feature.PinCredential, DoorLock.Feature.User, DoorLock.Feature.CredentialOverTheAirAccess) {
+  /**
+   * Handles the LockDoor command.
+   * It will set lockState to Locked.
+   *
+   * @param {DoorLock.LockDoorRequest} request - Lock-door request payload.
+   */
+  override async lockDoor(request: DoorLock.LockDoorRequest): Promise<void> {
+    const device = this.endpoint.stateOf(MatterbridgeServer);
+    device.log.info(
+      `Locking door with pincode ${request.pinCode ? '0x' + Buffer.from(request.pinCode).toString('hex') : 'N/A'} (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`,
+    );
+    await device.commandHandler.executeHandler('DoorLock.lockDoor', {
+      command: 'lockDoor',
+      request,
+      cluster: DoorLockServer.id,
+      attributes: this.state as unknown as ClusterAttributeValues<(typeof DoorLock.Complete)['attributes']>,
+      endpoint: this.endpoint as MatterbridgeEndpoint,
+    });
+    device.log.debug(`MatterbridgeDoorLockUserServer: lockDoor called`);
+    await super.lockDoor(request);
+  }
+
+  /**
+   * Handles the UnlockDoor command.
+   * It will set lockState to Unlocked.
+   *
+   * @param {DoorLock.UnlockDoorRequest} request - Unlock-door request payload.
+   */
+  override async unlockDoor(request: DoorLock.UnlockDoorRequest): Promise<void> {
+    const device = this.endpoint.stateOf(MatterbridgeServer);
+    device.log.info(
+      `Unlocking door with pincode ${request.pinCode ? '0x' + Buffer.from(request.pinCode).toString('hex') : 'N/A'} (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`,
+    );
+    await device.commandHandler.executeHandler('DoorLock.unlockDoor', {
+      command: 'unlockDoor',
+      request,
+      cluster: DoorLockServer.id,
+      attributes: this.state as unknown as ClusterAttributeValues<(typeof DoorLock.Complete)['attributes']>,
+      endpoint: this.endpoint as MatterbridgeEndpoint,
+    });
+    device.log.debug(`MatterbridgeDoorLockUserServer: unlockDoor called`);
+    await super.unlockDoor(request);
+  }
+
+  /**
+   * Handles the SetUser command (feature User).
+   *
+   * @param {DoorLock.SetUserRequest} request - Set-user request payload.
+   */
+  override async setUser(request: DoorLock.SetUserRequest): Promise<void> {
+    const device = this.endpoint.stateOf(MatterbridgeServer);
+    device.log.info(
+      `Setting user ${request.userIndex} name ${request.userName ?? 'N/A'} status ${request.userStatus ?? 'N/A'} type ${request.userType ?? 'N/A'} (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`,
+    );
+    await device.commandHandler.executeHandler('DoorLock.setUser', {
+      command: 'setUser',
+      request,
+      cluster: DoorLockServer.id,
+      attributes: this.state as unknown as ClusterAttributeValues<(typeof DoorLock.Complete)['attributes']>,
+      endpoint: this.endpoint as MatterbridgeEndpoint,
+    });
+    device.log.debug(`MatterbridgeDoorLockUserServer: setUser called for user ${request.userIndex}`);
+  }
+
+  /**
+   * Handles the GetUser command (feature User).
+   *
+   * @param {DoorLock.GetUserRequest} request - Get-user request payload.
+   * @returns {Promise<DoorLock.GetUserResponse>} - Get-user response payload.
+   */
+  override async getUser(request: DoorLock.GetUserRequest): Promise<DoorLock.GetUserResponse> {
+    const device = this.endpoint.stateOf(MatterbridgeServer);
+    device.log.info(`Getting user ${request.userIndex} (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`);
+    await device.commandHandler.executeHandler('DoorLock.getUser', {
+      command: 'getUser',
+      request,
+      cluster: DoorLockServer.id,
+      attributes: this.state as unknown as ClusterAttributeValues<(typeof DoorLock.Complete)['attributes']>,
+      endpoint: this.endpoint as MatterbridgeEndpoint,
+    });
+    device.log.debug(`MatterbridgeDoorLockUserServer: getUser called for user ${request.userIndex}`);
+    return {
+      userIndex: request.userIndex,
+      userName: null,
+      userUniqueId: null,
+      userStatus: DoorLock.UserStatus.Available,
+      userType: null,
+      credentialRule: null,
+      credentials: null,
+      creatorFabricIndex: null,
+      lastModifiedFabricIndex: null,
+      nextUserIndex: null,
+    };
+  }
+
+  /**
+   * Handles the ClearUser command (feature User).
+   *
+   * @param {DoorLock.ClearUserRequest} request - Clear-user request payload.
+   */
+  override async clearUser(request: DoorLock.ClearUserRequest): Promise<void> {
+    const device = this.endpoint.stateOf(MatterbridgeServer);
+    device.log.info(
+      `Clearing ${request.userIndex === 0xfffe ? 'all users' : 'user ' + request.userIndex} (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`,
+    );
+    await device.commandHandler.executeHandler('DoorLock.clearUser', {
+      command: 'clearUser',
+      request,
+      cluster: DoorLockServer.id,
+      attributes: this.state as unknown as ClusterAttributeValues<(typeof DoorLock.Complete)['attributes']>,
+      endpoint: this.endpoint as MatterbridgeEndpoint,
+    });
+    device.log.debug(`MatterbridgeDoorLockUserServer: clearUser called for ${request.userIndex === 0xfffe ? 'all users' : 'user ' + request.userIndex}`);
+  }
+
+  /**
+   * Handles the SetCredential command (feature User).
+   *
+   * @param {DoorLock.SetCredentialRequest} request - Set-credential request payload.
+   * @returns {Promise<DoorLock.SetCredentialResponse>} - Set-credential response payload.
+   */
+  override async setCredential(request: DoorLock.SetCredentialRequest): Promise<DoorLock.SetCredentialResponse> {
+    const device = this.endpoint.stateOf(MatterbridgeServer);
+    device.log.info(
+      `Setting credential type ${request.credential.credentialType} index ${request.credential.credentialIndex} for user ${request.userIndex ?? 'new'} (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`,
+    );
+    await device.commandHandler.executeHandler('DoorLock.setCredential', {
+      command: 'setCredential',
+      request,
+      cluster: DoorLockServer.id,
+      attributes: this.state as unknown as ClusterAttributeValues<(typeof DoorLock.Complete)['attributes']>,
+      endpoint: this.endpoint as MatterbridgeEndpoint,
+    });
+    device.log.debug(`MatterbridgeDoorLockUserServer: setCredential called`);
+    return {
+      status: Status.Success,
+      userIndex: null,
+      nextCredentialIndex: null,
+    };
+  }
+
+  /**
+   * Handles the GetCredentialStatus command (feature User).
+   *
+   * @param {DoorLock.GetCredentialStatusRequest} request - Get-credential-status request payload.
+   * @returns {Promise<DoorLock.GetCredentialStatusResponse>} - Get-credential-status response payload.
+   */
+  override async getCredentialStatus(request: DoorLock.GetCredentialStatusRequest): Promise<DoorLock.GetCredentialStatusResponse> {
+    const device = this.endpoint.stateOf(MatterbridgeServer);
+    device.log.info(
+      `Getting credential status type ${request.credential.credentialType} index ${request.credential.credentialIndex} (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`,
+    );
+    await device.commandHandler.executeHandler('DoorLock.getCredentialStatus', {
+      command: 'getCredentialStatus',
+      request,
+      cluster: DoorLockServer.id,
+      attributes: this.state as unknown as ClusterAttributeValues<(typeof DoorLock.Complete)['attributes']>,
+      endpoint: this.endpoint as MatterbridgeEndpoint,
+    });
+    device.log.debug(`MatterbridgeDoorLockUserServer: getCredentialStatus called`);
+    return {
+      credentialExists: false,
+      userIndex: null,
+      creatorFabricIndex: null,
+      lastModifiedFabricIndex: null,
+      nextCredentialIndex: null,
+    };
+  }
+
+  /**
+   * Handles the ClearCredential command (feature User).
+   *
+   * @param {DoorLock.ClearCredentialRequest} request - Clear-credential request payload.
+   */
+  override async clearCredential(request: DoorLock.ClearCredentialRequest): Promise<void> {
+    const device = this.endpoint.stateOf(MatterbridgeServer);
+    device.log.info(
+      `Clearing credential ${request.credential ? `type ${request.credential.credentialType} index ${request.credential.credentialIndex}` : 'all'} (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`,
+    );
+    await device.commandHandler.executeHandler('DoorLock.clearCredential', {
+      command: 'clearCredential',
+      request,
+      cluster: DoorLockServer.id,
+      attributes: this.state as unknown as ClusterAttributeValues<(typeof DoorLock.Complete)['attributes']>,
+      endpoint: this.endpoint as MatterbridgeEndpoint,
+    });
+    device.log.debug(`MatterbridgeDoorLockUserServer: clearCredential called`);
   }
 }
 

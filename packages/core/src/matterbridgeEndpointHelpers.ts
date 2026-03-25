@@ -127,6 +127,7 @@ import {
   MatterbridgeDeviceEnergyManagementModeServer,
   MatterbridgeDeviceEnergyManagementServer,
   MatterbridgeDoorLockServer,
+  MatterbridgeDoorLockUserServer,
   MatterbridgeFanControlServer,
   MatterbridgeIdentifyServer,
   MatterbridgeLevelControlServer,

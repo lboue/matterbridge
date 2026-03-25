@@ -109,6 +109,7 @@ import {
   MatterbridgeDeviceEnergyManagementModeServer,
   MatterbridgeDeviceEnergyManagementServer,
   MatterbridgeDoorLockServer,
+  MatterbridgeDoorLockUserServer,
   MatterbridgeFanControlServer,
   MatterbridgeHepaFilterMonitoringServer,
   MatterbridgeIdentifyServer,
@@ -3470,6 +3471,64 @@ export class MatterbridgeEndpoint extends Endpoint {
         credentialRulesSupport: { single: true },
         numberOfCredentialsSupportedPerUser: 1,
         */
+      },
+    );
+    return this;
+  }
+
+  /**
+   * Creates a default User + PIN door lock cluster server (PinCredential + User + CredentialOverTheAirAccess features).
+   *
+   * @param {DoorLock.LockState} [lockState] - The initial state of the lock (default: Locked).
+   * @param {DoorLock.LockType} [lockType] - The type of the lock (default: DeadBolt).
+   * @returns {this} The current MatterbridgeEndpoint instance for chaining.
+   *
+   * @remarks
+   * Use this method when the controller (e.g. Apple Home, Home Assistant) requires the full User + Credential model
+   * instead of the legacy PIN-only commands. Users and PIN credentials are managed via setUser/getUser/clearUser
+   * and setCredential/getCredentialStatus/clearCredential commands.
+   */
+  createUserPinDoorLockClusterServer(lockState: DoorLock.LockState = DoorLock.LockState.Locked, lockType: DoorLock.LockType = DoorLock.LockType.DeadBolt): this {
+    this.behaviors.require(
+      MatterbridgeDoorLockUserServer.with(DoorLock.Feature.PinCredential, DoorLock.Feature.User, DoorLock.Feature.CredentialOverTheAirAccess).enable({
+        events: { doorLockAlarm: true, lockOperation: true, lockOperationError: true },
+      }),
+      {
+        lockState,
+        lockType,
+        /** This attribute SHALL indicate if the lock is currently able to (Enabled) or not able to (Disabled) process remote Lock, Unlock, or Unlock with Timeout commands. */
+        actuatorEnabled: true,
+        /** This attribute SHALL indicate the current operating mode of the lock as defined in OperatingModeEnum */
+        operatingMode: DoorLock.OperatingMode.Normal,
+        /**
+         * This attribute SHALL contain a bitmap with all operating bits of the OperatingMode attribute supported
+         * by the lock. All operating modes NOT supported by a lock SHALL be set to one. The value of
+         * the OperatingMode enumeration defines the related bit to be set.
+         * OperatingModesBitmap.Normal and OperatingModesBitmap.noRemoteLockUnlock are mandatory and SHALL always be supported.
+         * Default value 0xFFF6 (1111 1111 1111 0110) means:
+         * - normal: false (bit 0)
+         * - vacation: true (bit 1)
+         * - privacy: true (bit 2)
+         * - noRemoteLockUnlock: false (bit 3)
+         * - passage: true (bit 4)
+         * Special case of inverted bitmap: add also alwaysSet = 2047 (0000 0111 1111 1111) to have all bits set except the unsupported ones.
+         * Specs: "Any bit that is not yet defined in OperatingModesBitmap SHALL be set to 1."
+         */
+        supportedOperatingModes: { normal: false, vacation: true, privacy: true, noRemoteLockUnlock: false, passage: true, alwaysSet: 2047 },
+        autoRelockTime: 0, // 0=disabled
+        // PinCredential feature attributes
+        numberOfPinUsersSupported: 10,
+        minPinCodeLength: 4,
+        maxPinCodeLength: 10,
+        // PinCredential and CredentialOverTheAirAccess features attributes
+        requirePinForRemoteOperation: true,
+        // PinCredential or RfidCredential feature attributes
+        wrongCodeEntryLimit: 5,
+        userCodeTemporaryDisableTime: 60,
+        // User feature attributes
+        numberOfTotalUsersSupported: 10,
+        credentialRulesSupport: { single: true },
+        numberOfCredentialsSupportedPerUser: 1,
       },
     );
     return this;
