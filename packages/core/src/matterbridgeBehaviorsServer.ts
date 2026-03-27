@@ -801,7 +801,7 @@ export class MatterbridgeThermostatServer extends ThermostatServer.with(
       device.log.debug(`Removing atomic commands (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`);
       // @ts-expect-error cause acceptedCommandList and generatedCommandList are not typed in the cluster state
       await this.endpoint.setStateOf(ThermostatServer, {
-        acceptedCommandList: [0],
+        acceptedCommandList: this.features.presets ? [0, 6] : [0],
         generatedCommandList: [],
       });
     });
