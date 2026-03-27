@@ -800,8 +800,10 @@ export class MatterbridgeThermostatServer extends ThermostatServer.with(
       const device = this.endpoint.stateOf(MatterbridgeServer);
       device.log.debug(`Removing atomic commands (endpoint ${this.endpoint.maybeId}.${this.endpoint.maybeNumber})`);
       // @ts-expect-error cause acceptedCommandList and generatedCommandList are not typed in the cluster state
+      const currentList = ((this.state as Record<string, unknown>).acceptedCommandList as number[]) ?? [];
+      // @ts-expect-error cause acceptedCommandList and generatedCommandList are not typed in the cluster state
       await this.endpoint.setStateOf(ThermostatServer, {
-        acceptedCommandList: this.features.presets ? [0, 6] : [0],
+        acceptedCommandList: currentList.filter((id) => id !== 254), // remove AtomicRequest (254)
         generatedCommandList: [],
       });
     });
