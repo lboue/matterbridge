@@ -37,6 +37,9 @@ export * from './soilSensor.js';
 // Chapter 12. Robotic Device Types - Single class device types
 export * from './roboticVacuumCleaner.js';
 
+// Chapter 16. Camera Device Types - Single class device types
+export * from './doorbell.js';
+
 // Chapter 13. Appliances Device Types - Single class device types
 export * from './airConditioner.js';
 export * from './cooktop.js';

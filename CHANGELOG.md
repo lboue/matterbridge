@@ -64,6 +64,7 @@ These classes will run as threads in the next releases:
 
 - [chime]: Add `MatterbridgeChimeServer` behavior and `createDefaultChimeClusterServer()` endpoint helper for the Chime device type.
 - [chime]: Map the Chime client cluster to `ChimeClient` so the Doorbell device type resolves a working client binding.
+- [devices]: Add `Doorbell` class and corresponding tests.
 
 <a href="https://www.buymeacoffee.com/luligugithub"><img src="https://matterbridge.io/assets/bmc-button.svg" alt="Buy me a coffee" width="80"></a>
 
