@@ -43,5 +43,6 @@ export * from './serviceAreaServer.js';
 export * from './smokeCoAlarmServer.js';
 export * from './switchServer.js';
 export * from './thermostatServer.js';
+export * from './timeSynchronizationServer.js';
 export * from './valveConfigurationAndControlServer.js';
 export * from './windowCoveringServer.js';

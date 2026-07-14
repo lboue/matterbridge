@@ -58,6 +58,14 @@ These classes will run as threads in the next releases:
 - all plugins in bridge mode;
 - each plugin in childbridge mode;
 
+## [3.9.5] - Dev branch
+
+### Added
+
+- [matter]: Add the (optional) `TimeSynchronization` cluster to the root endpoint of every Matterbridge server node, reporting `UtcTime`/`Granularity` from the host system clock via the new `MatterbridgeTimeSynchronizationServer` behavior.
+
+<a href="https://www.buymeacoffee.com/luligugithub"><img src="https://matterbridge.io/assets/bmc-button.svg" alt="Buy me a coffee" width="80"></a>
+
 ## [3.9.4] - 2026-07-10
 
 ### Added

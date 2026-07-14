@@ -72,6 +72,7 @@ import { AnsiLogger, BLUE, CYAN, db, debugStringify, er, LogLevel, nf, or, Times
 import { NodeStorageManager } from 'node-persist-manager';
 
 // matterbridge
+import { MatterbridgeTimeSynchronizationServer } from './behaviors/timeSynchronizationServer.js';
 import { toBaseDevice } from './deviceManager.js';
 import { addVirtualDevice } from './helpers.js';
 import type { Matterbridge } from './matterbridge.js';
@@ -81,6 +82,12 @@ import type { MatterbridgePlatform } from './matterbridgePlatform.js';
 import { type Plugin, PluginManager } from './pluginManager.js';
 
 logModuleLoaded('MatterNode');
+
+/**
+ * The root endpoint type used for all Matterbridge server nodes, extended with the (optional) TimeSynchronization
+ * cluster so paired controllers can read the node's UtcTime and Granularity.
+ */
+const MatterbridgeRootEndpoint = ServerNode.RootEndpoint.with(MatterbridgeTimeSynchronizationServer);
 
 /**
  * Represents the Matter events.
@@ -667,7 +674,7 @@ export class MatterNode extends EventEmitter<MatterEvents> {
     /**
      * Create a Matter ServerNode, which contains the Root Endpoint and all relevant data and configuration
      */
-    const serverNode = await ServerNode.create({
+    const serverNode = await ServerNode.create(MatterbridgeRootEndpoint, {
       // Required: Give the Node a unique ID which is used to store the state of this node
       id: storeId,
 
