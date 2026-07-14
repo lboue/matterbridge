@@ -729,6 +729,10 @@ export class MatterNode extends EventEmitter<MatterEvents> {
 
         reachable: true,
       },
+
+      // Require the (optional) TimeSynchronization cluster on the Root endpoint; MatterbridgeTimeSynchronizationServer
+      // sets UtcTime/Granularity from the host system clock on initialize()
+      timeSynchronization: {},
     });
 
     /**

@@ -110,6 +110,7 @@ import {
 import { type NodeStorage, NodeStorageManager } from 'node-persist-manager';
 
 // matterbridge
+import { MatterbridgeTimeSynchronizationServer } from './behaviors/timeSynchronizationServer.js';
 import { DeviceManager } from './deviceManager.js';
 import { Frontend } from './frontend.js';
 import { addVirtualDevice, addVirtualDevices } from './helpers.js';
@@ -118,6 +119,12 @@ import { MatterbridgeEndpoint } from './matterbridgeEndpoint.js';
 import { type Plugin, PluginManager } from './pluginManager.js';
 
 logModuleLoaded('Matterbridge');
+
+/**
+ * The root endpoint type used for all Matterbridge server nodes, extended with the (optional) TimeSynchronization
+ * cluster so paired controllers can read the node's UtcTime and Granularity.
+ */
+const MatterbridgeRootEndpoint = ServerNode.RootEndpoint.with(MatterbridgeTimeSynchronizationServer);
 
 /**
  * Represents the Matterbridge events.
@@ -2934,7 +2941,7 @@ export class Matterbridge extends EventEmitter<MatterbridgeEvents> {
     /**
      * Create a Matter ServerNode, which contains the Root Endpoint and all relevant data and configuration
      */
-    const serverNode = await ServerNode.create({
+    const serverNode = await ServerNode.create(MatterbridgeRootEndpoint, {
       // Required: Give the Node a unique ID which is used to store the state of this node
       id: storeId,
 
@@ -2988,6 +2995,10 @@ export class Matterbridge extends EventEmitter<MatterbridgeEvents> {
 
         reachable: true,
       },
+
+      // Require the (optional) TimeSynchronization cluster on the Root endpoint; MatterbridgeTimeSynchronizationServer
+      // sets UtcTime/Granularity from the host system clock on initialize()
+      timeSynchronization: {},
     });
 
     /**
