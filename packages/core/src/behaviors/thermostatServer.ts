@@ -140,6 +140,12 @@ export class MatterbridgeThermostatServer extends ThermostatServer.with(
       endpoint: this.endpoint as MatterbridgeEndpoint,
       context: this.context,
     });
+    if (!Number.isInteger(request.expirationInMinutes) || request.expirationInMinutes <= 0) {
+      throw new StatusResponse.InvalidCommandError('ExpirationInMinutes must be a positive integer');
+    }
+    if (request.effectiveTime !== null && (!Number.isInteger(request.effectiveTime) || request.effectiveTime < 0)) {
+      throw new StatusResponse.InvalidCommandError('EffectiveTime must be a non-negative integer when provided');
+    }
     if (this.state.presets.find((p) => p.presetHandle !== null && Bytes.areEqual(p.presetHandle, request.presetHandle)) === undefined) {
       throw new StatusResponse.NotFoundError('Requested PresetHandle not found');
     }

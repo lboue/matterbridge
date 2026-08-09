@@ -1234,6 +1234,22 @@ describe('Server clusters and behaviors', () => {
     expect(addCalls[2]).toEqual({ cluster: 'thermostat', endpoint: thermostatSuggestion, request: invalidPresetRequest });
     expect(thermostatSuggestion.getAttribute(Thermostat.id, 'thermostatSuggestions')).toHaveLength(2);
 
+    // A non-positive/non-integer ExpirationInMinutes is rejected, but the command is still forwarded first.
+    const invalidExpirationRequest = { presetHandle: Uint8Array.from([1]), effectiveTime: 1700000000, expirationInMinutes: -5 };
+    await expect(thermostatSuggestion.invokeBehaviorCommand('Thermostat', 'addThermostatSuggestion', invalidExpirationRequest)).rejects.toThrow(
+      'ExpirationInMinutes must be a positive integer',
+    );
+    expect(addCalls[3]).toEqual({ cluster: 'thermostat', endpoint: thermostatSuggestion, request: invalidExpirationRequest });
+    expect(thermostatSuggestion.getAttribute(Thermostat.id, 'thermostatSuggestions')).toHaveLength(2);
+
+    // A negative EffectiveTime is rejected, but the command is still forwarded first.
+    const invalidEffectiveTimeRequest = { presetHandle: Uint8Array.from([1]), effectiveTime: -1, expirationInMinutes: 30 };
+    await expect(thermostatSuggestion.invokeBehaviorCommand('Thermostat', 'addThermostatSuggestion', invalidEffectiveTimeRequest)).rejects.toThrow(
+      'EffectiveTime must be a non-negative integer when provided',
+    );
+    expect(addCalls[4]).toEqual({ cluster: 'thermostat', endpoint: thermostatSuggestion, request: invalidEffectiveTimeRequest });
+    expect(thermostatSuggestion.getAttribute(Thermostat.id, 'thermostatSuggestions')).toHaveLength(2);
+
     // Fill the list up to MaxThermostatSuggestions (5), then the next add is rejected as ResourceExhausted.
     for (let i = 0; i < 3; i++) {
       await thermostatSuggestion.invokeBehaviorCommand('Thermostat', 'addThermostatSuggestion', {

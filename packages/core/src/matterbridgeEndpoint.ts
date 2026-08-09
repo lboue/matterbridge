@@ -3530,7 +3530,7 @@ export class MatterbridgeEndpoint extends Endpoint {
         numberOfPresets: Math.max(
           Array.isArray(presets) ? presets.length : 0,
           Array.isArray(presetTypes) ? Math.max(0, ...presetTypes.map((pt) => pt.numberOfPresets ?? 0)) : 0,
-          10,
+          1,
         ), // This attribute SHALL indicate the maximum number of entries supported by the Presets attribute, and must be consistent with the per-type capacities advertised in presetTypes.
         activePresetHandle: activePresetHandle ? Uint8Array.from(activePresetHandle) : null,
         // Ensure presetHandle is a proper Uint8Array by creating a new instance
@@ -3549,7 +3549,7 @@ export class MatterbridgeEndpoint extends Endpoint {
           presetTypeFeatures: pt.presetTypeFeatures ?? { automatic: false, supportsNames: true },
         })),
         // Thermostat.Feature.ThermostatSuggestions
-        maxThermostatSuggestions: Math.max(Array.isArray(thermostatSuggestions) ? thermostatSuggestions.length : 0, 5), // This attribute SHALL indicate the maximum number of entries supported by the ThermostatSuggestions attribute.
+        maxThermostatSuggestions: Math.max(Array.isArray(thermostatSuggestions) ? thermostatSuggestions.length : 0, 5), // This attribute SHALL indicate the maximum number of entries supported by the ThermostatSuggestions attribute (Matter spec constraint: min 5).
         // Ensure presetHandle is a proper Uint8Array by creating a new instance
         thermostatSuggestions: (thermostatSuggestions ?? []).map((s) => ({
           uniqueId: s.uniqueId,

@@ -1698,7 +1698,7 @@ describe('Matterbridge ' + NAME, () => {
     await addDevice(aggregator, device);
     await flushAsync();
     expect(device.getAttribute(Thermostat.id, 'systemMode')).toBe(Thermostat.SystemMode.Auto);
-    expect(device.getAttribute(Thermostat.id, 'numberOfPresets')).toBe(10);
+    expect(device.getAttribute(Thermostat.id, 'numberOfPresets')).toBe(2);
     expect(device.getAttribute(Thermostat.id, 'maxThermostatSuggestions')).toBe(5);
     const retrievedThermostatSuggestions = device.getAttribute(Thermostat.id, 'thermostatSuggestions');
     expect(retrievedThermostatSuggestions).toHaveLength(0);
@@ -1714,7 +1714,7 @@ describe('Matterbridge ' + NAME, () => {
       minCoolSetpointLimit: 0,
       maxCoolSetpointLimit: 5000,
       minSetpointDeadBand: 0,
-      numberOfPresets: 10,
+      numberOfPresets: 2,
       activePresetHandle: null,
       presets: [],
       maxThermostatSuggestions: 5,
