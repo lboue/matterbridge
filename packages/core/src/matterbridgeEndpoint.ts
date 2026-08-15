@@ -3094,6 +3094,7 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {number | undefined} [unoccupiedCoolingSetpoint] - The unoccupied cooling setpoint value in degrees Celsius. Defaults to 27° (it will be ignored if occupied is not provided).
    * @param {boolean | undefined} [occupied] - The occupancy status. Defaults to undefined (it will be ignored).
    * @param {number | null | undefined} [outdoorTemperature] - The outdoor temperature value in degrees Celsius. Defaults to undefined (it will be ignored).
+   * @param {boolean} [events] - When true, the **Events** (provisional TEVT) feature is also added. Defaults to false.
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    */
   createDefaultThermostatClusterServer(
@@ -3109,6 +3110,7 @@ export class MatterbridgeEndpoint extends Endpoint {
     unoccupiedCoolingSetpoint?: number,
     occupied?: boolean,
     outdoorTemperature?: number | null,
+    events: boolean = false,
   ): this {
     this.behaviors.require(
       MatterbridgeThermostatServer.with(
@@ -3116,6 +3118,7 @@ export class MatterbridgeEndpoint extends Endpoint {
         Thermostat.Feature.Cooling,
         Thermostat.Feature.AutoMode,
         ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : []),
+        ...(events ? [Thermostat.Feature.Events] : []),
       ),
       {
         // Common attributes
@@ -3171,6 +3174,7 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {number | undefined} [unoccupiedHeatingSetpoint] - The unoccupied heating setpoint value in degrees Celsius. Defaults to 19° (it will be ignored if occupied is not provided).
    * @param {boolean | undefined} [occupied] - The occupancy status. Defaults to undefined (it will be ignored).
    * @param {number | null | undefined} [outdoorTemperature] - The outdoor temperature value in degrees Celsius. Defaults to undefined (it will be ignored).
+   * @param {boolean} [events] - When true, the **Events** (provisional TEVT) feature is also added. Defaults to false.
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    */
   createDefaultHeatingThermostatClusterServer(
@@ -3181,34 +3185,42 @@ export class MatterbridgeEndpoint extends Endpoint {
     unoccupiedHeatingSetpoint?: number,
     occupied?: boolean,
     outdoorTemperature?: number | null,
+    events: boolean = false,
   ): this {
-    this.behaviors.require(MatterbridgeThermostatServer.with(Thermostat.Feature.Heating, ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : [])), {
-      // Common attributes
-      localTemperature: localTemperature * 100,
-      externalMeasuredIndoorTemperature: localTemperature * 100,
-      ...(outdoorTemperature !== undefined ? { outdoorTemperature: outdoorTemperature !== null ? outdoorTemperature * 100 : outdoorTemperature } : {}), // Optional nullable attribute
-      controlSequenceOfOperation: Thermostat.ControlSequenceOfOperation.HeatingOnly,
-      systemMode: Thermostat.SystemMode.Heat,
-      thermostatRunningState: {
-        heat: false,
-        cool: false,
-        fan: false,
-        heatStage2: false,
-        coolStage2: false,
-        fanStage2: false,
-        fanStage3: false,
+    this.behaviors.require(
+      MatterbridgeThermostatServer.with(
+        Thermostat.Feature.Heating,
+        ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : []),
+        ...(events ? [Thermostat.Feature.Events] : []),
+      ),
+      {
+        // Common attributes
+        localTemperature: localTemperature * 100,
+        externalMeasuredIndoorTemperature: localTemperature * 100,
+        ...(outdoorTemperature !== undefined ? { outdoorTemperature: outdoorTemperature !== null ? outdoorTemperature * 100 : outdoorTemperature } : {}), // Optional nullable attribute
+        controlSequenceOfOperation: Thermostat.ControlSequenceOfOperation.HeatingOnly,
+        systemMode: Thermostat.SystemMode.Heat,
+        thermostatRunningState: {
+          heat: false,
+          cool: false,
+          fan: false,
+          heatStage2: false,
+          coolStage2: false,
+          fanStage2: false,
+          fanStage3: false,
+        },
+        // Thermostat.Feature.Heating
+        occupiedHeatingSetpoint: occupiedHeatingSetpoint * 100,
+        minHeatSetpointLimit: minHeatSetpointLimit * 100,
+        maxHeatSetpointLimit: maxHeatSetpointLimit * 100,
+        absMinHeatSetpointLimit: minHeatSetpointLimit * 100,
+        absMaxHeatSetpointLimit: maxHeatSetpointLimit * 100,
+        // Thermostat.Feature.Occupancy
+        ...(occupied !== undefined ? { unoccupiedHeatingSetpoint: unoccupiedHeatingSetpoint !== undefined ? unoccupiedHeatingSetpoint * 100 : 1900 } : {}),
+        ...(occupied !== undefined ? { occupancy: { occupied } } : {}),
+        ...(occupied !== undefined ? { externallyMeasuredOccupancy: true } : {}),
       },
-      // Thermostat.Feature.Heating
-      occupiedHeatingSetpoint: occupiedHeatingSetpoint * 100,
-      minHeatSetpointLimit: minHeatSetpointLimit * 100,
-      maxHeatSetpointLimit: maxHeatSetpointLimit * 100,
-      absMinHeatSetpointLimit: minHeatSetpointLimit * 100,
-      absMaxHeatSetpointLimit: maxHeatSetpointLimit * 100,
-      // Thermostat.Feature.Occupancy
-      ...(occupied !== undefined ? { unoccupiedHeatingSetpoint: unoccupiedHeatingSetpoint !== undefined ? unoccupiedHeatingSetpoint * 100 : 1900 } : {}),
-      ...(occupied !== undefined ? { occupancy: { occupied } } : {}),
-      ...(occupied !== undefined ? { externallyMeasuredOccupancy: true } : {}),
-    });
+    );
     return this;
   }
 
@@ -3235,6 +3247,7 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {Uint8Array | null} [activePresetHandle] - The active preset handle. Defaults to null.
    * @param {Thermostat.Preset[]} [presets] - The list of thermostat presets. Defaults to empty array.
    * @param {Thermostat.PresetType[] | null | undefined} [presetTypes] - The list of thermostat preset types. Defaults to a predefined set.
+   * @param {boolean} [events] - When true, the **Events** (provisional TEVT) feature is also added. Defaults to false.
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    */
   createDefaultPresetsThermostatClusterServer(
@@ -3256,6 +3269,7 @@ export class MatterbridgeEndpoint extends Endpoint {
       { presetScenario: Thermostat.PresetScenario.Occupied, numberOfPresets: 2, presetTypeFeatures: { automatic: false, supportsNames: true } },
       { presetScenario: Thermostat.PresetScenario.Unoccupied, numberOfPresets: 2, presetTypeFeatures: { automatic: false, supportsNames: true } },
     ],
+    events: boolean = false,
   ): this {
     this.behaviors.require(
       MatterbridgeThermostatServer.with(
@@ -3264,6 +3278,7 @@ export class MatterbridgeEndpoint extends Endpoint {
         Thermostat.Feature.AutoMode,
         ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : []),
         Thermostat.Feature.Presets,
+        ...(events ? [Thermostat.Feature.Events] : []),
       ),
       {
         localTemperature: localTemperature * 100,
@@ -3341,6 +3356,7 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {Thermostat.ScheduleType[]} [scheduleTypes] - The list of thermostat schedule types. Defaults to a predefined set supporting the Auto system mode.
    * @param {number} [numberOfScheduleTransitions] - The maximum number of transitions per schedule entry. Defaults to 10.
    * @param {number | null} [numberOfScheduleTransitionPerDay] - The maximum number of transitions per day of the week for each schedule entry. Defaults to null (no limit).
+   * @param {boolean} [events] - When true, the **Events** (provisional TEVT) feature is also added. Defaults to false.
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    *
    * @remarks
@@ -3372,6 +3388,7 @@ export class MatterbridgeEndpoint extends Endpoint {
     ],
     numberOfScheduleTransitions: number = 10,
     numberOfScheduleTransitionPerDay: number | null = null,
+    events: boolean = false,
   ): this {
     this.behaviors.require(
       MatterbridgeThermostatServer.with(
@@ -3380,6 +3397,7 @@ export class MatterbridgeEndpoint extends Endpoint {
         Thermostat.Feature.AutoMode,
         ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : []),
         Thermostat.Feature.MatterScheduleConfiguration,
+        ...(events ? [Thermostat.Feature.Events] : []),
       ),
       {
         localTemperature: localTemperature * 100,
@@ -3461,6 +3479,7 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {Thermostat.ThermostatSuggestion[]} [thermostatSuggestions] - The list of thermostat suggestions. Defaults to empty array.
    * @param {Thermostat.ThermostatSuggestion | null} [currentThermostatSuggestion] - The currently active thermostat suggestion. Defaults to null.
    * @param {Thermostat.ThermostatSuggestionNotFollowingReason | null} [thermostatSuggestionNotFollowingReason] - The reason the current thermostat suggestion is not being followed. Defaults to null.
+   * @param {boolean} [events] - When true, the **Events** (provisional TEVT) feature is also added. Defaults to false.
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    *
    * @remarks
@@ -3490,6 +3509,7 @@ export class MatterbridgeEndpoint extends Endpoint {
     thermostatSuggestions: Thermostat.ThermostatSuggestion[] = [],
     currentThermostatSuggestion: Thermostat.ThermostatSuggestion | null = null,
     thermostatSuggestionNotFollowingReason: Thermostat.ThermostatSuggestionNotFollowingReason | null = null,
+    events: boolean = false,
   ): this {
     this.behaviors.require(
       MatterbridgeThermostatServer.with(
@@ -3499,6 +3519,7 @@ export class MatterbridgeEndpoint extends Endpoint {
         ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : []),
         Thermostat.Feature.Presets,
         Thermostat.Feature.ThermostatSuggestions,
+        ...(events ? [Thermostat.Feature.Events] : []),
       ),
       {
         localTemperature: localTemperature * 100,
@@ -3584,6 +3605,7 @@ export class MatterbridgeEndpoint extends Endpoint {
    * @param {number | undefined} [unoccupiedCoolingSetpoint] - The unoccupied cooling setpoint value in degrees Celsius. Defaults to 27° (it will be ignored if occupied is not provided).
    * @param {boolean | undefined} [occupied] - The occupancy status. Defaults to undefined (it will be ignored).
    * @param {number | null | undefined} [outdoorTemperature] - The outdoor temperature value in degrees Celsius. Defaults to undefined (it will be ignored).
+   * @param {boolean} [events] - When true, the **Events** (provisional TEVT) feature is also added. Defaults to false.
    * @returns {this} The current MatterbridgeEndpoint instance for chaining.
    */
   createDefaultCoolingThermostatClusterServer(
@@ -3594,34 +3616,42 @@ export class MatterbridgeEndpoint extends Endpoint {
     unoccupiedCoolingSetpoint?: number,
     occupied?: boolean,
     outdoorTemperature?: number | null,
+    events: boolean = false,
   ): this {
-    this.behaviors.require(MatterbridgeThermostatServer.with(Thermostat.Feature.Cooling, ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : [])), {
-      // Common attributes
-      localTemperature: localTemperature * 100,
-      externalMeasuredIndoorTemperature: localTemperature * 100,
-      ...(outdoorTemperature !== undefined ? { outdoorTemperature: outdoorTemperature !== null ? outdoorTemperature * 100 : outdoorTemperature } : {}), // Optional nullable attribute
-      controlSequenceOfOperation: Thermostat.ControlSequenceOfOperation.CoolingOnly,
-      systemMode: Thermostat.SystemMode.Cool,
-      thermostatRunningState: {
-        heat: false,
-        cool: false,
-        fan: false,
-        heatStage2: false,
-        coolStage2: false,
-        fanStage2: false,
-        fanStage3: false,
+    this.behaviors.require(
+      MatterbridgeThermostatServer.with(
+        Thermostat.Feature.Cooling,
+        ...(occupied !== undefined ? [Thermostat.Feature.Occupancy] : []),
+        ...(events ? [Thermostat.Feature.Events] : []),
+      ),
+      {
+        // Common attributes
+        localTemperature: localTemperature * 100,
+        externalMeasuredIndoorTemperature: localTemperature * 100,
+        ...(outdoorTemperature !== undefined ? { outdoorTemperature: outdoorTemperature !== null ? outdoorTemperature * 100 : outdoorTemperature } : {}), // Optional nullable attribute
+        controlSequenceOfOperation: Thermostat.ControlSequenceOfOperation.CoolingOnly,
+        systemMode: Thermostat.SystemMode.Cool,
+        thermostatRunningState: {
+          heat: false,
+          cool: false,
+          fan: false,
+          heatStage2: false,
+          coolStage2: false,
+          fanStage2: false,
+          fanStage3: false,
+        },
+        // Thermostat.Feature.Cooling
+        occupiedCoolingSetpoint: occupiedCoolingSetpoint * 100,
+        minCoolSetpointLimit: minCoolSetpointLimit * 100,
+        maxCoolSetpointLimit: maxCoolSetpointLimit * 100,
+        absMinCoolSetpointLimit: minCoolSetpointLimit * 100,
+        absMaxCoolSetpointLimit: maxCoolSetpointLimit * 100,
+        // Thermostat.Feature.Occupancy
+        ...(occupied !== undefined ? { unoccupiedCoolingSetpoint: unoccupiedCoolingSetpoint !== undefined ? unoccupiedCoolingSetpoint * 100 : 2700 } : {}),
+        ...(occupied !== undefined ? { occupancy: { occupied } } : {}),
+        ...(occupied !== undefined ? { externallyMeasuredOccupancy: true } : {}),
       },
-      // Thermostat.Feature.Cooling
-      occupiedCoolingSetpoint: occupiedCoolingSetpoint * 100,
-      minCoolSetpointLimit: minCoolSetpointLimit * 100,
-      maxCoolSetpointLimit: maxCoolSetpointLimit * 100,
-      absMinCoolSetpointLimit: minCoolSetpointLimit * 100,
-      absMaxCoolSetpointLimit: maxCoolSetpointLimit * 100,
-      // Thermostat.Feature.Occupancy
-      ...(occupied !== undefined ? { unoccupiedCoolingSetpoint: unoccupiedCoolingSetpoint !== undefined ? unoccupiedCoolingSetpoint * 100 : 2700 } : {}),
-      ...(occupied !== undefined ? { occupancy: { occupied } } : {}),
-      ...(occupied !== undefined ? { externallyMeasuredOccupancy: true } : {}),
-    });
+    );
     return this;
   }
 

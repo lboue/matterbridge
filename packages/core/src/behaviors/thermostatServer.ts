@@ -33,16 +33,105 @@ import type { ClusterAttributeValues } from '../matterbridgeEndpointCommandHandl
 import { MatterbridgeServer } from './matterbridgeServer.js';
 
 /**
- * Thermostat server (cooling/heating/auto/presets/schedules/suggestions) with Matterbridge-specific command handling.
+ * Thermostat server (cooling/heating/auto/occupancy/presets/schedules/suggestions/events) with Matterbridge-specific command handling.
  */
 export class MatterbridgeThermostatServer extends ThermostatServer.with(
   Thermostat.Feature.Cooling,
   Thermostat.Feature.Heating,
   Thermostat.Feature.AutoMode,
+  Thermostat.Feature.Occupancy,
   Thermostat.Feature.Presets,
   Thermostat.Feature.MatterScheduleConfiguration,
   Thermostat.Feature.ThermostatSuggestions,
+  Thermostat.Feature.Events,
 ) {
+  /**
+   * When the Events (TEVT) feature is enabled, sets up reactors that emit the eight Thermostat cluster events
+   * defined by Matter 1.6 § 4.3.13 whenever their source attribute changes.
+   *
+   * @remarks
+   * matter.js does not yet generate these events itself (the Events feature is not implemented by `ThermostatServer`
+   * in `@matter/node`), so Matterbridge reacts to the relevant attribute-changed observables and emits them here.
+   * `maybeReactTo` is used for every source attribute that is not unconditionally present regardless of feature
+   * combination (SystemMode is the only one that always is), since the corresponding `$Changed` observable only
+   * exists on endpoints where the attribute itself is actually present.
+   */
+  override async initialize(): Promise<void> {
+    await super.initialize();
+    if (!this.features.events) return;
+
+    this.reactTo(this.events.systemMode$Changed, this.#emitSystemModeChange);
+    this.maybeReactTo(this.events.thermostatRunningState$Changed, this.#emitRunningStateChange);
+    this.maybeReactTo(this.events.occupiedHeatingSetpoint$Changed, this.#emitOccupiedHeatingSetpointChange);
+    this.maybeReactTo(this.events.unoccupiedHeatingSetpoint$Changed, this.#emitUnoccupiedHeatingSetpointChange);
+    this.maybeReactTo(this.events.occupiedCoolingSetpoint$Changed, this.#emitOccupiedCoolingSetpointChange);
+    this.maybeReactTo(this.events.unoccupiedCoolingSetpoint$Changed, this.#emitUnoccupiedCoolingSetpointChange);
+    this.maybeReactTo(this.events.occupancy$Changed, this.#emitOccupancyChange);
+    this.maybeReactTo(this.events.thermostatRunningMode$Changed, this.#emitRunningModeChange);
+    this.maybeReactTo(this.events.activeScheduleHandle$Changed, this.#emitActiveScheduleChange);
+    this.maybeReactTo(this.events.activePresetHandle$Changed, this.#emitActivePresetChange);
+    if (!this.features.localTemperatureNotExposed) {
+      this.reactTo(this.events.calibratedTemperature$Changed, this.#emitLocalTemperatureChange);
+    }
+  }
+
+  #emitSystemModeChange = (currentSystemMode: Thermostat.SystemMode, previousSystemMode: Thermostat.SystemMode): void => {
+    this.events.systemModeChange.emit({ previousSystemMode, currentSystemMode }, this.context);
+  };
+
+  #emitRunningStateChange = (currentRunningState: Thermostat.RelayState, previousRunningState: Thermostat.RelayState): void => {
+    this.events.runningStateChange.emit({ previousRunningState, currentRunningState }, this.context);
+  };
+
+  #emitOccupiedHeatingSetpointChange = (currentSetpoint: number, previousSetpoint: number): void => {
+    this.events.setpointChange.emit({ systemMode: Thermostat.SystemMode.Heat, occupancy: { occupied: true }, previousSetpoint, currentSetpoint }, this.context);
+  };
+
+  #emitUnoccupiedHeatingSetpointChange = (currentSetpoint: number, previousSetpoint: number): void => {
+    this.events.setpointChange.emit({ systemMode: Thermostat.SystemMode.Heat, occupancy: { occupied: false }, previousSetpoint, currentSetpoint }, this.context);
+  };
+
+  #emitOccupiedCoolingSetpointChange = (currentSetpoint: number, previousSetpoint: number): void => {
+    this.events.setpointChange.emit({ systemMode: Thermostat.SystemMode.Cool, occupancy: { occupied: true }, previousSetpoint, currentSetpoint }, this.context);
+  };
+
+  #emitUnoccupiedCoolingSetpointChange = (currentSetpoint: number, previousSetpoint: number): void => {
+    this.events.setpointChange.emit({ systemMode: Thermostat.SystemMode.Cool, occupancy: { occupied: false }, previousSetpoint, currentSetpoint }, this.context);
+  };
+
+  #emitOccupancyChange = (currentOccupancy: Thermostat.Occupancy, previousOccupancy: Thermostat.Occupancy): void => {
+    this.events.occupancyChange.emit({ previousOccupancy, currentOccupancy }, this.context);
+  };
+
+  #emitRunningModeChange = (currentRunningMode: Thermostat.ThermostatRunningMode, previousRunningMode: Thermostat.ThermostatRunningMode): void => {
+    this.events.runningModeChange.emit({ previousRunningMode, currentRunningMode }, this.context);
+  };
+
+  #emitActiveScheduleChange = (currentScheduleHandle: Uint8Array | null, previousScheduleHandle: Uint8Array | null): void => {
+    this.events.activeScheduleChange.emit({ previousScheduleHandle, currentScheduleHandle }, this.context);
+  };
+
+  #emitActivePresetChange = (currentPresetHandle: Uint8Array | null, previousPresetHandle: Uint8Array | null): void => {
+    this.events.activePresetChange.emit({ previousPresetHandle, currentPresetHandle }, this.context);
+  };
+
+  /** Timestamp (ms since epoch) of the last emitted LocalTemperatureChange event, to enforce the spec's 60 s minimum interval. */
+  #lastLocalTemperatureChangeEmittedAt = 0;
+
+  /**
+   * Emits LocalTemperatureChange, throttled to at most once every 60 seconds as required by Matter 1.6 § 4.3.13.2.
+   *
+   * @param {number | null} currentLocalTemperature - The calibrated local temperature after the change.
+   * @param {number | null} previousLocalTemperature - The calibrated local temperature before the change.
+   */
+  #emitLocalTemperatureChange = (currentLocalTemperature: number | null, previousLocalTemperature: number | null): void => {
+    if (currentLocalTemperature === previousLocalTemperature) return;
+    const now = Date.now();
+    if (now - this.#lastLocalTemperatureChangeEmittedAt < 60_000) return;
+    this.#lastLocalTemperatureChangeEmittedAt = now;
+    this.events.localTemperatureChange.emit({ currentLocalTemperature }, this.context);
+  };
+
   /**
    * Forwards SetpointRaiseLower requests to the Matterbridge command handler and updates occupied setpoints.
    *
