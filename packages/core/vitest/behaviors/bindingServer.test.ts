@@ -10,6 +10,7 @@ const MATTER_CREATE_ONLY = true;
 
 import { Logger } from '@matter/general';
 import { type ClusterBehavior, Endpoint } from '@matter/main/node';
+import { AmbientContextSensingClient } from '@matter/node/behaviors/ambient-context-sensing';
 import { type BindingResolution, BindingServer } from '@matter/node/behaviors/binding';
 import { DescriptorServer } from '@matter/node/behaviors/descriptor';
 import { OccupancySensingClient, OccupancySensingServer } from '@matter/node/behaviors/occupancy-sensing';
@@ -17,6 +18,7 @@ import { OnOffServer } from '@matter/node/behaviors/on-off';
 import { OnOffPlugInUnitDevice } from '@matter/node/devices/on-off-plug-in-unit';
 import { EndpointNumber, FabricIndex, NodeId } from '@matter/types';
 import { getClusterNameById } from '@matter/types/cluster';
+import { AmbientContextSensing } from '@matter/types/clusters/ambient-context-sensing';
 import type { Binding } from '@matter/types/clusters/binding';
 import { Identify } from '@matter/types/clusters/identify';
 import { OccupancySensing } from '@matter/types/clusters/occupancy-sensing';
@@ -28,7 +30,7 @@ import { debugStringify } from 'node-ansi-logger';
 import { MatterbridgeBindingServer } from '../../src/behaviors/bindingServer.js';
 import { MatterbridgeIdentifyServer } from '../../src/behaviors/identifyServer.js';
 import { MatterbridgeOnOffServer } from '../../src/behaviors/onOffServer.js';
-import { bridgedNode, occupancySensor, onOffLight, onOffLightSwitch, onOffPlugInUnit } from '../../src/matterbridgeDeviceTypes.js';
+import { bridgedNode, occupancySensor, onOffLight, onOffLightSwitch, onOffPlugInUnit, thermostat } from '../../src/matterbridgeDeviceTypes.js';
 import { MatterbridgeEndpoint } from '../../src/matterbridgeEndpoint.js';
 import { lowercaseFirstLetter } from '../../src/matterbridgeEndpointHelpers.js';
 
@@ -303,6 +305,24 @@ describe('Client clusters and behaviors', () => {
     expect(Object.keys(clientClusters)).toHaveLength(1);
     expect(clientClusters['occupancySensing']).toBe(OccupancySensingClient);
     expect(clientClusters['occupancySensing'].cluster.id).toBe(OccupancySensing.id);
+  });
+
+  test('add thermostat with AmbientContextSensing client cluster', async () => {
+    // A Thermostat consumes AmbientContextSensing as an optional client cluster (Matter 1.6), not as a server.
+    // createDefaultBindingClusterServer() is the documented way to declare it can bind to a companion device.
+    const endpoint = new MatterbridgeEndpoint(thermostat, { id: 'ThermostatWithAmbientContextSensing' }).addRequiredClusters().createDefaultBindingClusterServer([AmbientContextSensing.id]);
+    expect(endpoint).toBeDefined();
+    expect(await aggregator.add(endpoint)).toBeDefined();
+    await endpoint.construction.ready;
+
+    // Descriptor of the thermostat must advertise AmbientContextSensing as a client cluster
+    expect(endpoint.stateOf(DescriptorServer).clientList).toContain(AmbientContextSensing.id);
+
+    // endpoint.type.clientClusters must be populated with cluster info
+    const clientClusters = endpoint.type.clientClusters as Record<string, ClusterBehavior.Type> | undefined;
+    if (!clientClusters) throw new Error('clientClusters is undefined');
+    expect(clientClusters['ambientContextSensing']).toBe(AmbientContextSensingClient);
+    expect(clientClusters['ambientContextSensing'].cluster.id).toBe(AmbientContextSensing.id);
   });
 
   test('add OnOffPlugInUnitDevice', async () => {

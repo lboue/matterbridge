@@ -213,6 +213,49 @@ Behavior type and cluster type are preferred because they are type-safe and avoi
 
 Using the cluster name string is useful in plugins because it avoids importing every cluster type.
 
+## Optional client clusters (binding)
+
+Some device types declare optional (or required) **client** clusters — the endpoint can read/subscribe to that cluster on another node via a Matter binding, instead of hosting the cluster itself. `Thermostat` is an example: it can optionally consume `FanControl`, `TemperatureMeasurement`, `RelativeHumidityMeasurement`, `OccupancySensing`, and `AmbientContextSensing` (Matter 1.6) as client clusters.
+
+There is no per-cluster `createDefault…ClusterClient()` helper. Client clusters are wired through the generic binding mechanism instead:
+
+- `addRequiredClusterClients()` — adds the client clusters required by the endpoint's device type(s).
+- `addOptionalClusterClients()` — adds the optional client clusters declared by the endpoint's device type(s).
+- `addClusterClients([...clusterIds])` / `createDefaultBindingClusterServer([...clusterIds])` — adds specific client clusters explicitly. Both do the same thing; `createDefaultBindingClusterServer` reads better when chained with the other `createDefault…` calls.
+
+Example — a `Thermostat` endpoint that can bind to a companion device exposing `AmbientContextSensing`:
+
+```ts
+import { AmbientContextSensing } from '@matter/types/clusters/ambient-context-sensing';
+import { MatterbridgeEndpoint, thermostat } from 'matterbridge';
+
+const device = new MatterbridgeEndpoint(thermostat, { id: 'Thermostat' })
+  .createDefaultBridgedDeviceBasicInformationClusterServer('Thermostat', 'THERMO-001', 0xfff1, 'Matterbridge', 'Matterbridge Thermostat')
+  .createDefaultThermostatClusterServer()
+  .createDefaultBindingClusterServer([AmbientContextSensing.id]) // or addOptionalClusterClients()
+  .addRequiredClusters();
+```
+
+The controller is responsible for creating the actual binding entry (which remote node/endpoint to bind to); the plugin only needs to declare that the cluster is supported as a client.
+
+## Expose AmbientContextSensing as a server (companion sensor device)
+
+To publish ambient context data (presence, activity, sound, object detection) that a `Thermostat` or other controller can consume, expose `AmbientContextSensing` as a **server** cluster from your own endpoint using `createDefaultAmbientContextSensingClusterServer(...)`:
+
+```ts
+import { MatterbridgeEndpoint, contactSensor } from 'matterbridge';
+
+const sensor = new MatterbridgeEndpoint(contactSensor, { id: 'AmbientContextSensor' })
+  .createDefaultBridgedDeviceBasicInformationClusterServer('Ambient Sensor', 'AMBIENT-001', 0xfff1, 'Matterbridge', 'Matterbridge Ambient Context Sensor')
+  .createDefaultAmbientContextSensingClusterServer(true)
+  .addRequiredClusters();
+```
+
+Notes:
+
+- `AmbientContextSensing` is provisional in the Matter 1.6 specification, and matter.js does not yet implement a dedicated "Ambient Context Sensor" device type (`0x0150`) — build the endpoint with whichever device type fits your sensor and attach the cluster explicitly, as above.
+- `createDefaultAmbientContextSensingClusterServer(...)` only wires the `HumanActivity` feature (presence/activity detection), the common case. For `ObjectCounting`, `ObjectIdentification`, `SoundIdentification`, or `PredictedActivity`, call `this.behaviors.require(AmbientContextSensingServer.with(...), {...})` directly with the matching attributes.
+
 ## When to use a raw endpoint vs a single-class device
 
 Use a raw `MatterbridgeEndpoint` when:

@@ -33,10 +33,12 @@ import {
   SoilMeasurementServer,
   TotalVolatileOrganicCompoundsConcentrationMeasurementServer,
 } from '@matter/node/behaviors';
+import { AmbientContextSensingServer } from '@matter/node/behaviors/ambient-context-sensing';
 import { FanControlServer } from '@matter/node/behaviors/fan-control';
 import {
   ActivatedCarbonFilterMonitoring,
   AirQuality,
+  AmbientContextSensing,
   BasicInformation,
   BooleanState,
   BooleanStateConfiguration,
@@ -2204,6 +2206,22 @@ describe('Matterbridge ' + NAME, () => {
     await add(device);
 
     expect(device.getAttribute(OccupancySensing.id, 'occupancy')).toEqual({ occupied: true });
+    // (matterbridge.frontend as any).getClusterTextFromDevice(device);
+  });
+
+  test('createDefaultAmbientContextSensingClusterServer', async () => {
+    // AmbientContextSensing has no dedicated device type in matter.js yet, so a raw sensor device type hosts it here,
+    // like a plugin would until Matterbridge ships a first-class Ambient Context Sensor device type.
+    const device = new MatterbridgeEndpoint(occupancySensor, { id: 'AmbientContextSensor' });
+    expect(device).toBeDefined();
+    device.createDefaultIdentifyClusterServer();
+    device.createDefaultAmbientContextSensingClusterServer(true);
+    expect(device.hasClusterServer(AmbientContextSensingServer)).toBe(true);
+    expect(device.hasAttributeServer(AmbientContextSensingServer, 'humanActivityDetected')).toBe(true);
+
+    await add(device);
+
+    expect(device.getAttribute(AmbientContextSensing.id, 'humanActivityDetected')).toBe(true);
     // (matterbridge.frontend as any).getClusterTextFromDevice(device);
   });
 

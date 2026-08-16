@@ -33,6 +33,7 @@ import { type AtLeastOne, Lifecycle, UINT16_MAX, UINT32_MAX } from '@matter/gene
 import { type ActionContext, type Behavior, Endpoint, type EndpointType, MutableEndpoint, type ServerNode, SupportedBehaviors } from '@matter/node';
 // @matter behaviors
 import { AirQualityServer } from '@matter/node/behaviors/air-quality';
+import { AmbientContextSensingServer } from '@matter/node/behaviors/ambient-context-sensing';
 import { BooleanStateServer } from '@matter/node/behaviors/boolean-state';
 import { BridgedDeviceBasicInformationServer } from '@matter/node/behaviors/bridged-device-basic-information';
 import { CarbonDioxideConcentrationMeasurementServer } from '@matter/node/behaviors/carbon-dioxide-concentration-measurement';
@@ -65,6 +66,7 @@ import { TotalVolatileOrganicCompoundsConcentrationMeasurementServer } from '@ma
 // @matter/types
 import { type ClusterType, type ClusterTyping, getClusterNameById } from '@matter/types/cluster';
 import { AirQuality } from '@matter/types/clusters/air-quality';
+import { AmbientContextSensing } from '@matter/types/clusters/ambient-context-sensing';
 import { BasicInformation } from '@matter/types/clusters/basic-information';
 import { BooleanStateConfiguration } from '@matter/types/clusters/boolean-state-configuration';
 import { BridgedDeviceBasicInformation } from '@matter/types/clusters/bridged-device-basic-information';
@@ -153,6 +155,7 @@ import {
   getBehaviourTypesFromClusterServerIds,
   getCluster,
   getClusterId,
+  getDefaultAmbientContextSensingClusterServer,
   getDefaultDeviceEnergyManagementClusterServer,
   getDefaultDeviceEnergyManagementModeClusterServer,
   getDefaultElectricalEnergyMeasurementClusterServer,
@@ -4325,6 +4328,42 @@ export class MatterbridgeEndpoint extends Endpoint {
     this.behaviors.require(
       OccupancySensingServer.with(OccupancySensing.Feature.PassiveInfrared),
       getDefaultOccupancySensingClusterServer(occupied, holdTime, holdTimeMin, holdTimeMax),
+    );
+    return this;
+  }
+
+  /**
+   * Creates a default AmbientContextSensing cluster server with feature HumanActivity.
+   *
+   * @param {boolean} humanActivityDetected - A boolean indicating whether human activity is currently detected. Default is false.
+   * @param {number} simultaneousDetectionLimit - The maximum number of simultaneous ambient context detections supported by the server. Default is 1.
+   * @param {number} holdTime - The hold time in seconds. Default is 30.
+   * @param {number} holdTimeMin - The minimum hold time in seconds. Default is 1.
+   * @param {number} holdTimeMax - The maximum hold time in seconds. Default is 300.
+   * @returns {this} The current MatterbridgeEndpoint instance for chaining.
+   *
+   * @remarks The AmbientContextSensing cluster is provisional in the Matter 1.6 specification. This helper only wires the
+   * HumanActivity feature, which covers the common presence/activity detection use case, and enables the
+   * ambientContextDetectStarted/ambientContextDetectEnded events. For the ObjectCounting, ObjectIdentification,
+   * SoundIdentification, or PredictedActivity features, call `this.behaviors.require(AmbientContextSensingServer.with(...), {...})`
+   * directly with the matching attributes.
+   *
+   * A Thermostat endpoint consumes this cluster as an optional client cluster instead of hosting it as a server. Use
+   * `createDefaultBindingClusterServer([AmbientContextSensing.id])` (or `addOptionalClusterClients()`) on the Thermostat
+   * endpoint to declare that it can bind to a companion device exposing this cluster as a server.
+   */
+  createDefaultAmbientContextSensingClusterServer(
+    humanActivityDetected: boolean = false,
+    simultaneousDetectionLimit: number = 1,
+    holdTime: number = 30,
+    holdTimeMin: number = 1,
+    holdTimeMax: number = 300,
+  ): this {
+    this.behaviors.require(
+      AmbientContextSensingServer.with(AmbientContextSensing.Feature.HumanActivity).enable({
+        events: { ambientContextDetectStarted: true, ambientContextDetectEnded: true },
+      }),
+      getDefaultAmbientContextSensingClusterServer(humanActivityDetected, simultaneousDetectionLimit, holdTime, holdTimeMin, holdTimeMax),
     );
     return this;
   }

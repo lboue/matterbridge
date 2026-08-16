@@ -40,7 +40,7 @@ import { type ActionContext, type Behavior, ClusterBehavior, type Endpoint } fro
 // @matter behaviors
 import { ActivatedCarbonFilterMonitoringServer } from '@matter/node/behaviors/activated-carbon-filter-monitoring';
 import { AirQualityServer } from '@matter/node/behaviors/air-quality';
-import { AmbientContextSensingClient } from '@matter/node/behaviors/ambient-context-sensing';
+import { AmbientContextSensingClient, AmbientContextSensingServer } from '@matter/node/behaviors/ambient-context-sensing';
 import { BasicInformationServer } from '@matter/node/behaviors/basic-information';
 import { BooleanStateServer } from '@matter/node/behaviors/boolean-state';
 import { BridgedDeviceBasicInformationServer } from '@matter/node/behaviors/bridged-device-basic-information';
@@ -1743,6 +1743,34 @@ export function getDefaultOccupancySensingClusterServer(occupied = false, holdTi
     pirOccupiedToUnoccupiedDelay: holdTime,
     pirUnoccupiedToOccupiedDelay: holdTime,
     pirUnoccupiedToOccupiedThreshold: 1,
+    holdTime,
+    holdTimeLimits: { holdTimeMin, holdTimeMax, holdTimeDefault: holdTime },
+  });
+}
+
+/**
+ * Get the default AmbientContextSensing cluster server options with feature HumanActivity.
+ *
+ * @param {boolean} humanActivityDetected - A boolean indicating whether human activity is currently detected. Default is false.
+ * @param {number} simultaneousDetectionLimit - The maximum number of simultaneous ambient context detections supported by the server. Default is 1.
+ * @param {number} holdTime - The hold time in seconds. Default is 30.
+ * @param {number} holdTimeMin - The minimum hold time in seconds. Default is 1.
+ * @param {number} holdTimeMax - The maximum hold time in seconds. Default is 300.
+ * @returns {Behavior.Options<MatterbridgeAmbientContextSensingServer>} - The default options for the AmbientContextSensing cluster server.
+ *
+ * @remarks The AmbientContextSensing cluster is provisional in the Matter 1.6 specification. This helper only wires the
+ * HumanActivity feature, which covers the common presence/activity detection use case. For the ObjectCounting,
+ * ObjectIdentification, SoundIdentification, or PredictedActivity features, require `AmbientContextSensingServer.with(...)`
+ * directly with the matching attributes.
+ * The AmbientContextType attribute constraint requires at least one entry whenever a detection feature is enabled, so
+ * a single placeholder entry with no semantic tags is used as the default.
+ */
+export function getDefaultAmbientContextSensingClusterServer(humanActivityDetected = false, simultaneousDetectionLimit = 1, holdTime = 30, holdTimeMin = 1, holdTimeMax = 300) {
+  return optionsFor(AmbientContextSensingServer.with(AmbientContextSensing.Feature.HumanActivity), {
+    humanActivityDetected,
+    ambientContextType: [{ ambientContextSensed: [] }],
+    ambientContextTypeSupported: [],
+    simultaneousDetectionLimit,
     holdTime,
     holdTimeLimits: { holdTimeMin, holdTimeMax, holdTimeDefault: holdTime },
   });
