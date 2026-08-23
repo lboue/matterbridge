@@ -121,6 +121,7 @@ If you like this project and find it useful, please consider giving it a star on
 - [Pump]: `MatterbridgePumpConfigurationAndControlServer` also mirrors `OperationMode` writes onto `EffectiveOperationMode` (§4.2.7.15), and rejects `OperationMode` writes with a `FAILURE` status while `PumpStatus.LocalOverride` is set (§4.2.6.1.3).
 - [Pump]: `MatterbridgePumpConfigurationAndControlServer` forces `Speed`/`Capacity` to `MinConstSpeed`/`MaxConstSpeed` (§4.2.6.2) while `OperationMode` is Minimum/Maximum, independent of `LevelControl`; switching back to Normal restores the `LevelControl`-derived setpoint (§4.2.6.2.1).
 - [endpoint]: Extend `createDefaultPowerTopologyClusterServer()` to configure NodeTopology, TreeTopology, SetTopology, and DynamicPowerFlow with available and active endpoint lists.
+- [doorLock]: Add `DoorLock.Feature.WeekDayAccessSchedules`, `YearDayAccessSchedules` and `HolidaySchedules` support to `MatterbridgeDoorLockServer`: `setWeekDaySchedule`/`getWeekDaySchedule`/`clearWeekDaySchedule`, `setYearDaySchedule`/`getYearDaySchedule`/`clearYearDaySchedule` and `setHolidaySchedule`/`getHolidaySchedule`/`clearHolidaySchedule` now forward to the Matterbridge command handler before delegating to the built-in schedule store, mirroring the existing `setUser`/`getUser` pattern. Add `createScheduleDoorLockClusterServer()` to `MatterbridgeEndpoint`, mirroring `createUserPinDoorLockClusterServer()` (#612). Thanks Ludovic BOUÉ.
 
 ### Changed
 
