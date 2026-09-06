@@ -31,8 +31,14 @@ If you like this project and find it useful, please consider giving it a star on
 
 ## [3.10.9] - Dev branch
 
+### Development News
+
+- [chip]: EVSE Complete endpoint 14011 CHIP conformance is green ✅ for all automated harness tests covering the `EnergyEvse` and `EnergyEvseMode` clusters, including the optional `SoCReporting`, `PlugAndCharge`, `Rfid`, and `V2X` features.
+
 ### Added
 
+- [Evse]: `Evse`/`EvseOptions` accept new optional constructor options enabling the remaining `EnergyEvse` cluster features: `stateOfCharge`/`batteryCapacity` (SoCReporting), `vehicleId` (PlugAndCharge), `rfid` (Rfid, adds the `Rfid` event and the new `triggerRfidEvent()` helper), and `v2x` (V2X, adds the `EnableDischarging` command). `esaCanGenerate` is also now exposed to the child `DeviceEnergyManagement` endpoint for V2X-capable (export-capable) EVSEs. All features are opt-in and disabled by default, matching the existing `ChargingPreferences`-only behavior. Thanks Ludovic BOUÉ.
+- [Evse]: `MatterbridgeEnergyEvseServer` now implements `enableDischarging()` (Matter 1.6.0 § 9.3.9.3), mirroring `enableCharging()`'s validation and state-update mandates for the discharge direction, and `enableCharging()`/`disable()` now correctly interoperate with a concurrently active discharge (`SupplyState.Enabled`) on V2X-capable instances. Thanks Ludovic BOUÉ.
 - [thread]: Add Bun runtime detection to the system check, logging the Bun version and skipping Node.js version warnings when running on Bun.
 - [thread]: Add a check for the latest stable Bun version during the system check, warning when the running version differs from the latest release.
 - [utils]: Add `getBunLatestVersion()` to fetch the latest stable Bun version from GitHub, returning `undefined` if the request fails or the release tag is invalid.
@@ -122,8 +128,6 @@ If you like this project and find it useful, please consider giving it a star on
 - [doorlock]: `createUserPinDoorLockClusterServer()` accepts a new optional `expiringUserTimeout` parameter that creates the `ExpiringUserTimeout` attribute (Matter 1.6.0 § 5.2.9.36, constraint 1 to 2880 minutes), enabling support for `DoorLock.UserType.ExpiringUser` temporary PIN credentials. Thanks Ludovic BOUÉ.
 - [chip]: Add the DoorLockUserPINExpiring demo device on endpoint 8013, a User/PIN door lock with `expiringUserTimeout` set, with its own `door-lock-user-pin-expiring.pics` and a TC_DRLK_2_1 run, so steps 34a-34c (read, write, read-back of `ExpiringUserTimeout`) are executed instead of skipped. Thanks Ludovic BOUÉ.
 - [DoorLock]: `createUserPinDoorLockClusterServer()` accepts a new optional `numberOfRfidUsersSupported` parameter that enables the `RfidCredential` (RID) feature (Matter 1.6.0 § 5.2.4), creating the `NumberOfRFIDUsersSupported`, `MaxRFIDCodeLength`, and `MinRFIDCodeLength` attributes; the last two are also exposed as optional `minRfidCodeLength`/`maxRfidCodeLength` parameters (defaults 8/20 bytes, matching 4/10-byte ISO 14443A UIDs when represented as ASCII hex, per the spec recommendation). `SetCredential`/`GetCredentialStatus`/`ClearCredential` already handle `DoorLock.CredentialType.Rfid` generically in `MatterbridgeDoorLockServer`, so no command-handler changes were needed. Thanks Ludovic BOUÉ.
-- [Evse]: `Evse`/`EvseOptions` accept new optional constructor options enabling the remaining `EnergyEvse` cluster features: `stateOfCharge`/`batteryCapacity` (SoCReporting), `vehicleId` (PlugAndCharge), `rfid` (Rfid, adds the `Rfid` event and the new `triggerRfidEvent()` helper), and `v2x` (V2X, adds the `EnableDischarging` command). `esaCanGenerate` is also now exposed to the child `DeviceEnergyManagement` endpoint for V2X-capable (export-capable) EVSEs. All features are opt-in and disabled by default, matching the existing `ChargingPreferences`-only behavior.
-- [Evse]: `MatterbridgeEnergyEvseServer` now implements `enableDischarging()` (Matter 1.6.0 § 9.3.9.3), mirroring `enableCharging()`'s validation and state-update mandates for the discharge direction, and `enableCharging()`/`disable()` now correctly interoperate with a concurrently active discharge (`SupplyState.Enabled`) on V2X-capable instances.
 
 ### Changed
 

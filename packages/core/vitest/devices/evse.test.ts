@@ -430,7 +430,7 @@ describe('Matterbridge ' + NAME, () => {
     // Matter 1.6.0 § 9.3.9.2.4: EnableCharging is rejected while diagnostics are active.
     await expect(
       device.invokeBehaviorCommand(EnergyEvseServer, 'enableCharging', { chargingEnabledUntil: null, minimumChargeCurrent: 6_000, maximumChargeCurrent: 32_000 }),
-    ).rejects.toThrow('cannot enable charging while diagnostics are active');
+    ).rejects.toThrow('cannot enable charging while an error or diagnostics are active');
 
     // Restore a normal supply state for subsequent tests.
     await device.setAttribute('energyEvse', 'supplyState', EnergyEvse.SupplyState.ChargingEnabled);
@@ -440,6 +440,7 @@ describe('Matterbridge ' + NAME, () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 7, 27, 12, 0, 0));
     try {
+      await device.invokeBehaviorCommand(EnergyEvseModeServer, 'changeToMode', { newMode: 2 });
       await device.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInDemand);
       await device.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.ChargingPreferences), 'setTargets', {
         chargingTargetSchedules: [
@@ -487,8 +488,40 @@ describe('Matterbridge ' + NAME, () => {
       expect(device.getAttribute(EnergyEvse.id, 'nextChargeTargetSoC')).toBeNull();
     } finally {
       await device.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.ChargingPreferences), 'clearTargets');
+      await device.invokeBehaviorCommand(EnergyEvseModeServer, 'changeToMode', { newMode: 1 });
       vi.useRealTimers();
     }
+  });
+
+  test('derive scheduled targets after charging is enabled in manual mode', async () => {
+    await device.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInDemand);
+    await device.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.ChargingPreferences), 'setTargets', {
+      chargingTargetSchedules: [
+        {
+          dayOfWeekForSequence: new EnergyEvse.TargetDayOfWeek(0x7f),
+          chargingTargets: [{ targetTimeMinutesPastMidnight: 23 * 60 + 59, addedEnergy: 25_000_000 }],
+        },
+      ],
+    });
+    await device.invokeBehaviorCommand(EnergyEvseServer, 'enableCharging', {
+      chargingEnabledUntil: null,
+      minimumChargeCurrent: 6_000,
+      maximumChargeCurrent: 32_000,
+    });
+
+    expect(device.getAttribute(EnergyEvse.id, 'nextChargeTargetTime')).not.toBeNull();
+    expect(device.getAttribute(EnergyEvse.id, 'nextChargeRequiredEnergy')).toBe(25_000_000);
+    await device.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.ChargingPreferences), 'clearTargets');
+  });
+
+  test('stop automatic charging when targets are cleared', async () => {
+    await device.invokeBehaviorCommand(EnergyEvseModeServer, 'changeToMode', { newMode: 2 });
+    await device.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInCharging);
+    await device.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.ChargingPreferences), 'clearTargets');
+
+    expect(device.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInDemand);
+    expect(device.getAttribute(EnergyEvse.id, 'supplyState')).toBe(EnergyEvse.SupplyState.Disabled);
+    await device.invokeBehaviorCommand(EnergyEvseModeServer, 'changeToMode', { newMode: 1 });
   });
 
   test('stop charging and emit EnergyTransferStopped when ChargingEnabledUntil expires', async () => {
@@ -509,6 +542,8 @@ describe('Matterbridge ' + NAME, () => {
       await vi.advanceTimersByTimeAsync(5_000);
       expect(device.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInDemand);
       expect(device.getAttribute(EnergyEvse.id, 'supplyState')).toBe(EnergyEvse.SupplyState.Disabled);
+      expect(device.getAttribute(EnergyEvse.id, 'minimumChargeCurrent')).toBe(0);
+      expect(device.getAttribute(EnergyEvse.id, 'maximumChargeCurrent')).toBe(0);
       expect(energyTransferStopped).toHaveBeenCalledWith(
         expect.objectContaining({
           sessionId: 7,
@@ -618,8 +653,24 @@ describe('Matterbridge ' + NAME, () => {
     await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'startDiagnostics');
     await expect(
       featureDevice.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.V2X), 'enableDischarging', { dischargingEnabledUntil: null, maximumDischargeCurrent: 16_000 }),
-    ).rejects.toThrow('cannot enable discharging while diagnostics are active');
+    ).rejects.toThrow('cannot enable discharging while an error or diagnostics are active');
     // Reset to a clean, fully-disabled baseline for the following tests.
+    await featureDevice.setAttribute('energyEvse', 'supplyState', EnergyEvse.SupplyState.Disabled);
+  });
+
+  test('reject EnergyEvse enable commands while an EVSE error is active', async () => {
+    await featureDevice.setAttribute('energyEvse', 'faultState', EnergyEvse.FaultState.GroundFault);
+    await featureDevice.setAttribute('energyEvse', 'supplyState', EnergyEvse.SupplyState.DisabledError);
+
+    await expect(
+      featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'enableCharging', { chargingEnabledUntil: null, minimumChargeCurrent: 6_000, maximumChargeCurrent: 32_000 }),
+    ).rejects.toThrow('cannot enable charging while an error or diagnostics are active');
+    await expect(
+      featureDevice.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.V2X), 'enableDischarging', { dischargingEnabledUntil: null, maximumDischargeCurrent: 16_000 }),
+    ).rejects.toThrow('cannot enable discharging while an error or diagnostics are active');
+    expect(featureDevice.getAttribute(EnergyEvse.id, 'supplyState')).toBe(EnergyEvse.SupplyState.DisabledError);
+
+    await featureDevice.setAttribute('energyEvse', 'faultState', EnergyEvse.FaultState.NoError);
     await featureDevice.setAttribute('energyEvse', 'supplyState', EnergyEvse.SupplyState.Disabled);
   });
 
@@ -629,7 +680,7 @@ describe('Matterbridge ' + NAME, () => {
       dischargingEnabledUntil: null,
       maximumDischargeCurrent: 16_000,
     });
-    expect(featureDevice.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInDischarging);
+    expect(featureDevice.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInDemand);
     expect(featureDevice.getAttribute(EnergyEvse.id, 'supplyState')).toBe(EnergyEvse.SupplyState.DischargingEnabled);
     expect(featureDevice.getAttribute(EnergyEvse.id, 'maximumDischargeCurrent')).toBe(16_000);
 
@@ -641,6 +692,50 @@ describe('Matterbridge ' + NAME, () => {
     await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'disable');
     expect(featureDevice.getAttribute(EnergyEvse.id, 'supplyState')).toBe(EnergyEvse.SupplyState.Disabled);
     expect(featureDevice.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInDemand);
+    expect(featureDevice.getAttribute(EnergyEvse.id, 'maximumDischargeCurrent')).toBe(0);
+  });
+
+  test('prefer TargetSoC over AddedEnergy when SoC reporting is available', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 27, 12, 0, 0));
+    try {
+      await expect(
+        featureDevice.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.ChargingPreferences), 'setTargets', {
+          chargingTargetSchedules: [
+            {
+              dayOfWeekForSequence: new EnergyEvse.TargetDayOfWeek(0x7f),
+              chargingTargets: [{ targetTimeMinutesPastMidnight: 23 * 60 + 59, addedEnergy: 25_000_000 }],
+            },
+          ],
+        }),
+      ).rejects.toThrow('TargetSoC is required when SoC reporting is available');
+
+      await featureDevice.invokeBehaviorCommand(EnergyEvseModeServer, 'changeToMode', { newMode: 2 });
+      await featureDevice.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInDemand);
+      await featureDevice.setAttribute('energyEvse', 'stateOfCharge', 95);
+      await featureDevice.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.ChargingPreferences), 'setTargets', {
+        chargingTargetSchedules: [
+          {
+            dayOfWeekForSequence: new EnergyEvse.TargetDayOfWeek(0x7f),
+            chargingTargets: [{ targetTimeMinutesPastMidnight: 23 * 60 + 59, targetSoC: 90, addedEnergy: 25_000_000 }],
+          },
+        ],
+      });
+      await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'enableCharging', {
+        chargingEnabledUntil: null,
+        minimumChargeCurrent: 6_000,
+        maximumChargeCurrent: 32_000,
+      });
+
+      expect(featureDevice.getAttribute(EnergyEvse.id, 'nextChargeTargetSoC')).toBe(90);
+      expect(featureDevice.getAttribute(EnergyEvse.id, 'nextChargeRequiredEnergy')).toBeNull();
+      expect(featureDevice.getAttribute(EnergyEvse.id, 'nextChargeStartTime')).toBeNull();
+    } finally {
+      await featureDevice.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.ChargingPreferences), 'clearTargets');
+      await featureDevice.setAttribute('energyEvse', 'stateOfCharge', null);
+      await featureDevice.invokeBehaviorCommand(EnergyEvseModeServer, 'changeToMode', { newMode: 1 });
+      vi.useRealTimers();
+    }
   });
 
   test('stop discharging and emit EnergyTransferStopped when DischargingEnabledUntil expires', async () => {
@@ -648,6 +743,7 @@ describe('Matterbridge ' + NAME, () => {
     try {
       const energyTransferStopped = vi.fn();
       (featureDevice.events as any).energyEvse.energyTransferStopped.on(energyTransferStopped);
+      await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'disable');
       await featureDevice.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInDemand);
       await featureDevice.setAttribute('energyEvse', 'sessionId', 9);
 
@@ -655,11 +751,14 @@ describe('Matterbridge ' + NAME, () => {
         dischargingEnabledUntil: Math.floor(Time.nowMs / 1000) + 5,
         maximumDischargeCurrent: 16_000,
       });
+      expect(featureDevice.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInDemand);
+      await featureDevice.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInDischarging);
       expect(featureDevice.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInDischarging);
 
       await vi.advanceTimersByTimeAsync(5_000);
       expect(featureDevice.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInDemand);
       expect(featureDevice.getAttribute(EnergyEvse.id, 'supplyState')).toBe(EnergyEvse.SupplyState.Disabled);
+      expect(featureDevice.getAttribute(EnergyEvse.id, 'maximumDischargeCurrent')).toBe(0);
       expect(energyTransferStopped).toHaveBeenCalledWith(
         expect.objectContaining({
           sessionId: 9,
@@ -694,6 +793,49 @@ describe('Matterbridge ' + NAME, () => {
       // Only the discharge direction stops; charging remains enabled and State stays PluggedInCharging.
       expect(featureDevice.getAttribute(EnergyEvse.id, 'supplyState')).toBe(EnergyEvse.SupplyState.ChargingEnabled);
       expect(featureDevice.getAttribute(EnergyEvse.id, 'state')).toBe(EnergyEvse.State.PluggedInCharging);
+      expect(featureDevice.getAttribute(EnergyEvse.id, 'maximumDischargeCurrent')).toBe(0);
+    } finally {
+      vi.useRealTimers();
+      await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'disable');
+    }
+  });
+
+  test('charging expiry does not preserve an expired discharging permission', async () => {
+    vi.useFakeTimers();
+    try {
+      const now = Math.floor(Time.nowMs / 1000);
+      await featureDevice.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInDemand);
+      await featureDevice.setAttribute('energyEvse', 'dischargingEnabledUntil', now - 1);
+      await featureDevice.setAttribute('energyEvse', 'supplyState', EnergyEvse.SupplyState.Enabled);
+      await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'enableCharging', {
+        chargingEnabledUntil: now + 5,
+        minimumChargeCurrent: 6_000,
+        maximumChargeCurrent: 32_000,
+      });
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(featureDevice.getAttribute(EnergyEvse.id, 'supplyState')).toBe(EnergyEvse.SupplyState.Disabled);
+    } finally {
+      vi.useRealTimers();
+      await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'disable');
+    }
+  });
+
+  test('include V2X fields when charging stops', async () => {
+    vi.useFakeTimers();
+    try {
+      const energyTransferStopped = vi.fn();
+      (featureDevice.events as any).energyEvse.energyTransferStopped.on(energyTransferStopped);
+      await featureDevice.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInDemand);
+      await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'enableCharging', {
+        chargingEnabledUntil: Math.floor(Time.nowMs / 1000) + 5,
+        minimumChargeCurrent: 6_000,
+        maximumChargeCurrent: 32_000,
+      });
+      await featureDevice.setAttribute('energyEvse', 'state', EnergyEvse.State.PluggedInCharging);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(energyTransferStopped).toHaveBeenCalledWith(expect.objectContaining({ energyDischarged: 0 }), expect.anything());
     } finally {
       vi.useRealTimers();
       await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'disable');
