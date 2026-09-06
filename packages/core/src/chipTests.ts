@@ -516,10 +516,10 @@ async function handleEnergyEvseTestEventTrigger(eventTrigger: bigint): Promise<b
       await endpoint.setCluster(EnergyEvse, { state: EnergyEvse.State.NotPluggedIn, supplyState: EnergyEvse.SupplyState.Disabled }, log);
       return true;
     case normalizeTestEventTrigger(energyEvseSetSocLowTrigger):
-      await endpoint.setAttribute(EnergyEvse.id, 'stateOfCharge', 20, log);
+      await endpoint.setCluster(EnergyEvse, { stateOfCharge: 20, batteryCapacity: 70_000_000 }, log);
       return true;
     case normalizeTestEventTrigger(energyEvseSetSocHighTrigger):
-      await endpoint.setAttribute(EnergyEvse.id, 'stateOfCharge', 95, log);
+      await endpoint.setCluster(EnergyEvse, { stateOfCharge: 95, batteryCapacity: 70_000_000 }, log);
       return true;
     case normalizeTestEventTrigger(energyEvseSetSocClearTrigger):
       await endpoint.setCluster(EnergyEvse, { stateOfCharge: null, batteryCapacity: null }, log);
