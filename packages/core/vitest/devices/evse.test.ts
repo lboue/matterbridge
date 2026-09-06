@@ -773,6 +773,41 @@ describe('Matterbridge ' + NAME, () => {
     }
   });
 
+  test('should use session zero when discharging stops without a session ID', async () => {
+    const energyTransferStopped = vi.fn();
+    (featureDevice.events as any).energyEvse.energyTransferStopped.on(energyTransferStopped);
+    await featureDevice.setAttribute(EnergyEvse.id, 'sessionId', null);
+    await featureDevice.setAttribute(EnergyEvse.id, 'state', EnergyEvse.State.PluggedInDemand);
+    await featureDevice.invokeBehaviorCommand(EnergyEvseServer.with(EnergyEvse.Feature.V2X), 'enableDischarging', {
+      dischargingEnabledUntil: null,
+      maximumDischargeCurrent: 16_000,
+    });
+    await featureDevice.setAttribute(EnergyEvse.id, 'state', EnergyEvse.State.PluggedInDischarging);
+    await featureDevice.invokeBehaviorCommand(EnergyEvseServer, 'disable');
+
+    expect(energyTransferStopped).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 0 }), expect.anything());
+  });
+
+  test('should restore charging and discharging expiry timers during initialization', async () => {
+    const restoredDevice = new Evse('EVSE Restored', 'EVSE-RESTORED', { v2x: true });
+    const expiresAt = Math.floor(Time.nowMs / 1000) + 60;
+    const initialize = MatterbridgeEnergyEvseServer.prototype.initialize;
+    const initializeSpy = vi.spyOn(MatterbridgeEnergyEvseServer.prototype, 'initialize').mockImplementationOnce(async function (this: MatterbridgeEnergyEvseServer) {
+      this.state.chargingEnabledUntil = expiresAt;
+      this.state.dischargingEnabledUntil = expiresAt;
+      await initialize.call(this);
+    });
+    try {
+      expect(await addDevice(server, restoredDevice)).toBeTruthy();
+
+      expect(restoredDevice.getAttribute(EnergyEvse.id, 'chargingEnabledUntil')).toBe(expiresAt);
+      expect(restoredDevice.getAttribute(EnergyEvse.id, 'dischargingEnabledUntil')).toBe(expiresAt);
+      await restoredDevice.invokeBehaviorCommand(EnergyEvseServer, 'disable');
+    } finally {
+      initializeSpy.mockRestore();
+    }
+  });
+
   test('discharging expiry while charging remains active only stops the discharge direction', async () => {
     vi.useFakeTimers();
     try {

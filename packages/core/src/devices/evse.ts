@@ -572,17 +572,13 @@ export class MatterbridgeEnergyEvseServer extends EnergyEvseServer.with(EnergyEv
   /** Applies the Matter 1.6 § 9.3.8.8 effective-current state-update mandate. */
   #updateMaximumChargeCurrent(): void {
     // Matter 1.6.0 § 9.3.8.8: Set MaximumChargeCurrent to the minimum of every applicable charging limit.
-    this.state.maximumChargeCurrent = Math.min(
-      Number(this.state.circuitCapacity),
-      this.state.requestedMaximumChargeCurrent ?? Number(this.state.maximumChargeCurrent),
-      Number(this.state.userMaximumChargeCurrent),
-    );
+    this.state.maximumChargeCurrent = Math.min(Number(this.state.circuitCapacity), Number(this.state.requestedMaximumChargeCurrent), Number(this.state.userMaximumChargeCurrent));
   }
 
   /** Applies the Matter 1.6 § 9.3.9.3.2 effective-current state-update mandate for the discharge direction. */
   #updateMaximumDischargeCurrent(): void {
     // Matter 1.6.0 § 9.3.8.9: Set MaximumDischargeCurrent to the minimum of every applicable discharging limit.
-    this.state.maximumDischargeCurrent = Math.min(Number(this.state.circuitCapacity), this.state.requestedMaximumDischargeCurrent ?? Number(this.state.maximumDischargeCurrent));
+    this.state.maximumDischargeCurrent = Math.min(Number(this.state.circuitCapacity), Number(this.state.requestedMaximumDischargeCurrent));
   }
 
   #stopCharging(reason: EnergyEvse.EnergyTransferStoppedReason): void {
@@ -738,8 +734,9 @@ export class MatterbridgeEnergyEvseServer extends EnergyEvseServer.with(EnergyEv
     // Matter 1.6.0 § 9.3.9.8.1: Clear all stored charging targets.
     this.state.chargingTargetSchedules = [];
     const modeState = this.endpoint.stateOf(EnergyEvseModeServer);
-    const currentMode = modeState.supportedModes.find((mode) => mode.mode === modeState.currentMode);
-    const isAutomaticMode = currentMode?.modeTags.some((tag) => tag.value === EnergyEvseMode.ModeTag.TimeOfUse) ?? false;
+    const isAutomaticMode = modeState.supportedModes.some(
+      (mode) => mode.mode === modeState.currentMode && mode.modeTags.some((tag) => tag.value === EnergyEvseMode.ModeTag.TimeOfUse),
+    );
     if (isAutomaticMode && this.state.state === EnergyEvse.State.PluggedInCharging) {
       // Matter 1.6.0 § 9.3.9.8.1: Stop charging when ClearTargets removes the schedule used by automatic mode.
       this.#stopCharging(EnergyEvse.EnergyTransferStoppedReason.EvseStopped);
@@ -799,13 +796,13 @@ export class MatterbridgeEnergyEvseServer extends EnergyEvseServer.with(EnergyEv
         const targetTime = Math.floor(targetDate.getTime() / 1000);
         const useTargetSoC = target.targetSoC !== undefined && (target.addedEnergy === undefined || (this.features.soCReporting && this.state.stateOfCharge !== null));
         const requiredEnergy = useTargetSoC || target.addedEnergy === undefined ? null : target.addedEnergy;
-        const targetSoCReached = useTargetSoC && this.state.stateOfCharge !== null && this.state.stateOfCharge >= (target.targetSoC ?? 100);
+        const targetSoCReached = useTargetSoC && this.state.stateOfCharge !== null && this.state.stateOfCharge >= Number(target.targetSoC);
         // Matter 1.6.0 § 9.3.8.13: Set NextChargeTargetTime to the next scheduled charging completion time.
         this.state.nextChargeTargetTime = targetTime;
         // Matter 1.6.0 § 9.3.8.14: Set NextChargeRequiredEnergy from the next target when AddedEnergy is present.
         this.state.nextChargeRequiredEnergy = requiredEnergy;
         // Matter 1.6.0 § 9.3.7.6.2 and § 9.3.8.15: Prefer TargetSoC over AddedEnergy when state-of-charge reporting is available.
-        this.state.nextChargeTargetSoC = useTargetSoC ? (target.targetSoC ?? null) : null;
+        this.state.nextChargeTargetSoC = useTargetSoC ? Number(target.targetSoC) : null;
         // Matter 1.6 §§ 9.3.7.6 and 9.3.9.5.2 recommend deriving the latest start from required energy,
         // available current, and local voltage. Use the EVSE's nominal 230 V supply for this default device.
         const maximumPowerMw = (230_000 * Number(this.state.maximumChargeCurrent)) / 1_000;
